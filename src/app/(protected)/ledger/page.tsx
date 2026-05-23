@@ -57,7 +57,7 @@ export default async function LedgerPage({
         action={
           <div className="flex gap-2">
             {tenant_id && (
-              <LedgerExportButton tenantId={tenant_id} />
+              <LedgerExportButton tenantId={tenant_id} type="summary" />
             )}
             <LinkButton variant="outline" size="sm" href="/ledger">All Tenants</LinkButton>
           </div>

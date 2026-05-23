@@ -1,10 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader } from '@/components/layout/page-header'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { LinkButton } from '@/components/ui/link-button'
 import Link from 'next/link'
-import { Filter } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+
+const PAGE_SIZE = 50
 
 const STATUS_COLORS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   verified: 'default',
@@ -18,9 +20,13 @@ const STATUS_COLORS: Record<string, 'default' | 'secondary' | 'destructive' | 'o
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; tenant_id?: string }>
+  searchParams: Promise<{ status?: string; tenant_id?: string; page?: string }>
 }) {
-  const { status, tenant_id } = await searchParams
+  const { status, tenant_id, page: pageParam } = await searchParams
+  const page = Math.max(1, parseInt(pageParam ?? '1'))
+  const from = (page - 1) * PAGE_SIZE
+  const to = from + PAGE_SIZE - 1
+
   const supabase = await createClient()
 
   let query = supabase
@@ -30,14 +36,24 @@ export default async function TransactionsPage({
       extracted_check_date, status, duplicate_suspected, ocr_confidence,
       matched_tenant_id, created_at,
       tenants:matched_tenant_id(id, name)
-    `)
+    `, { count: 'exact' })
     .order('created_at', { ascending: false })
-    .limit(200)
+    .range(from, to)
 
   if (status) query = query.eq('status', status)
   if (tenant_id) query = query.eq('matched_tenant_id', tenant_id)
 
-  const { data: transactions } = await query
+  const { data: transactions, count } = await query
+
+  const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE)
+
+  function pageUrl(p: number) {
+    const params = new URLSearchParams()
+    if (status) params.set('status', status)
+    if (tenant_id) params.set('tenant_id', tenant_id)
+    params.set('page', String(p))
+    return `/transactions?${params.toString()}`
+  }
 
   const statuses = [
     { value: '', label: 'All' },
@@ -46,16 +62,17 @@ export default async function TransactionsPage({
     { value: 'verified', label: 'Verified' },
     { value: 'duplicate_suspected', label: 'Duplicates' },
     { value: 'blank_detected', label: 'Blank' },
+    { value: 'rejected', label: 'Rejected' },
   ]
 
   return (
     <div>
       <PageHeader
         title="Transactions"
-        description="All extracted check records from uploaded PDFs"
+        description={count != null ? `${count.toLocaleString()} total records` : 'All extracted check records'}
       />
 
-      <div className="p-6 space-y-4">
+      <div className="p-4 md:p-6 space-y-4">
         {/* Status filter tabs */}
         <div className="flex flex-wrap gap-2">
           {statuses.map((s) => (
@@ -85,72 +102,115 @@ export default async function TransactionsPage({
             </CardContent>
           </Card>
         ) : (
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/30">
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Case #</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Tenant</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Check #</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">Amount</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">Confidence</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {transactions.map((t) => {
-                      const tenant = (t as any).tenants
-                      return (
-                        <tr key={t.id} className="border-b last:border-0 hover:bg-muted/20">
-                          <td className="px-4 py-2.5 font-mono text-xs">
-                            <Link href={`/transactions/${t.id}`} className="hover:underline text-primary">
-                              {t.extracted_case_number ?? '—'}
-                            </Link>
-                          </td>
-                          <td className="px-4 py-2.5">
-                            {tenant ? (
-                              <Link href={`/tenants/${tenant.id}`} className="hover:underline">
-                                {tenant.name}
-                              </Link>
-                            ) : (
-                              <span className="text-muted-foreground">Unmatched</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                            {t.extracted_check_number ?? '—'}
-                          </td>
-                          <td className="px-4 py-2.5 text-muted-foreground">
-                            {t.extracted_check_date ?? '—'}
-                          </td>
-                          <td className="px-4 py-2.5 text-right font-medium">
-                            {t.extracted_amount != null
-                              ? `$${Number(t.extracted_amount).toFixed(2)}`
-                              : '—'}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <Badge
-                              variant={STATUS_COLORS[t.status ?? ''] ?? 'secondary'}
-                              className="text-xs"
-                            >
-                              {t.status ?? '—'}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-2.5 text-right text-muted-foreground text-xs">
-                            {t.ocr_confidence != null
-                              ? `${(Number(t.ocr_confidence) * 100).toFixed(0)}%`
-                              : '—'}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+          <>
+            {/* Pagination info */}
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>
+                Showing {from + 1}–{Math.min(to + 1, count ?? 0)} of {(count ?? 0).toLocaleString()}
+              </span>
+              <div className="flex items-center gap-2">
+                {page > 1 && (
+                  <LinkButton variant="outline" size="sm" href={pageUrl(page - 1)}>
+                    <ChevronLeft className="w-4 h-4" />
+                    Prev
+                  </LinkButton>
+                )}
+                <span className="px-2">Page {page} of {totalPages}</span>
+                {page < totalPages && (
+                  <LinkButton variant="outline" size="sm" href={pageUrl(page + 1)}>
+                    Next
+                    <ChevronRight className="w-4 h-4" />
+                  </LinkButton>
+                )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Case #</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Tenant</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Check #</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Date</th>
+                        <th className="text-right px-4 py-3 font-medium text-muted-foreground">Amount</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+                        <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Confidence</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {transactions.map((t) => {
+                        const tenant = (t as any).tenants
+                        return (
+                          <tr key={t.id} className="border-b last:border-0 hover:bg-muted/20">
+                            <td className="px-4 py-2.5 font-mono text-xs">
+                              <Link href={`/transactions/${t.id}`} className="hover:underline text-primary">
+                                {t.extracted_case_number ?? '—'}
+                              </Link>
+                            </td>
+                            <td className="px-4 py-2.5">
+                              {tenant ? (
+                                <Link href={`/tenants/${tenant.id}`} className="hover:underline">
+                                  {tenant.name}
+                                </Link>
+                              ) : (
+                                <span className="text-muted-foreground">Unmatched</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground hidden sm:table-cell">
+                              {t.extracted_check_number ?? '—'}
+                            </td>
+                            <td className="px-4 py-2.5 text-muted-foreground hidden md:table-cell">
+                              {t.extracted_check_date ?? '—'}
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-medium">
+                              {t.extracted_amount != null
+                                ? `$${Number(t.extracted_amount).toFixed(2)}`
+                                : '—'}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <Badge
+                                variant={STATUS_COLORS[t.status ?? ''] ?? 'secondary'}
+                                className="text-xs"
+                              >
+                                {t.status ?? '—'}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-muted-foreground text-xs hidden lg:table-cell">
+                              {t.ocr_confidence != null
+                                ? `${(Number(t.ocr_confidence) * 100).toFixed(0)}%`
+                                : '—'}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Bottom pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-end gap-2">
+                {page > 1 && (
+                  <LinkButton variant="outline" size="sm" href={pageUrl(page - 1)}>
+                    <ChevronLeft className="w-4 h-4" />
+                    Prev
+                  </LinkButton>
+                )}
+                <span className="text-sm text-muted-foreground px-2">Page {page} of {totalPages}</span>
+                {page < totalPages && (
+                  <LinkButton variant="outline" size="sm" href={pageUrl(page + 1)}>
+                    Next
+                    <ChevronRight className="w-4 h-4" />
+                  </LinkButton>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

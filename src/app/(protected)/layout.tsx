@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { Sidebar } from '@/components/layout/sidebar'
+import { AppShell } from '@/components/layout/app-shell'
 
 export default async function ProtectedLayout({
   children,
@@ -14,12 +14,5 @@ export default async function ProtectedLayout({
     redirect('/login')
   }
 
-  return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto bg-background">
-        {children}
-      </main>
-    </div>
-  )
+  return <AppShell>{children}</AppShell>
 }

@@ -3,11 +3,9 @@ import { PageHeader } from '@/components/layout/page-header'
 import { Badge } from '@/components/ui/badge'
 import { LinkButton } from '@/components/ui/link-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Building2, Home, MapPin, Plus } from 'lucide-react'
-import { AddUnitDialog } from './add-unit-dialog'
+import { ArrowLeft, User, Calendar } from 'lucide-react'
 import { EditPropertyDialog } from './edit-property-dialog'
 
 export default async function PropertyDetailPage({
@@ -18,34 +16,26 @@ export default async function PropertyDetailPage({
   const { id } = await params
   const supabase = await createClient()
 
-  const [{ data: property }, { data: units }] = await Promise.all([
+  // In this system, each property row IS a unit — the units table is separate but empty.
+  // We get tenant/lease info directly from leases joined to this property.
+  const [{ data: property }, { data: leases }] = await Promise.all([
     supabase.from('properties').select('*').eq('id', id).single(),
     supabase
-      .from('units')
-      .select(`
-        *,
-        leases(
-          id, rent_amount, status,
-          tenants(id, name)
-        )
-      `)
+      .from('leases')
+      .select('id, start_date, end_date, rent_amount, status, tenants(id, name, case_number)')
       .eq('property_id', id)
-      .order('unit_number'),
+      .order('start_date', { ascending: false }),
   ])
 
   if (!property) notFound()
 
-  function getActiveLease(unit: any) {
-    return unit.leases?.find((l: any) => l.status === 'active') ?? null
-  }
+  const activeLease = leases?.find((l) => l.status === 'active') ?? null
+  const activeTenant = (activeLease as any)?.tenants ?? null
 
-  function statusBadge(status: string) {
-    const map: Record<string, string> = {
-      occupied: 'default',
-      vacant: 'secondary',
-      under_construction: 'outline',
-    }
-    return map[status] ?? 'secondary'
+  function statusVariant(s: string) {
+    if (s === 'active') return 'default'
+    if (s === 'expired') return 'secondary'
+    return 'outline'
   }
 
   return (
@@ -64,7 +54,7 @@ export default async function PropertyDetailPage({
         }
       />
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-6">
         {/* Property Info */}
         <Card>
           <CardHeader className="pb-3">
@@ -78,16 +68,10 @@ export default async function PropertyDetailPage({
               { label: 'City', value: property.city },
               { label: 'State', value: property.state },
               { label: 'ZIP', value: property.zip },
-              { label: 'Type', value: property.property_type ?? 'residential' },
-              { label: 'Total Units', value: units?.length ?? 0 },
-              {
-                label: 'Occupied',
-                value: units?.filter((u) => u.status === 'occupied').length ?? 0,
-              },
-              {
-                label: 'Vacant',
-                value: units?.filter((u) => u.status === 'vacant').length ?? 0,
-              },
+              { label: 'Type', value: property.property_type ?? 'Residential' },
+              { label: 'Status', value: property.status ?? '—' },
+              { label: 'Monthly Rent', value: activeLease ? `$${Number(activeLease.rent_amount).toLocaleString()}` : '—' },
+              { label: 'Occupancy', value: activeTenant ? 'Occupied' : 'Vacant' },
             ].map(({ label, value }) => (
               <div key={label}>
                 <p className="text-xs text-muted-foreground">{label}</p>
@@ -97,62 +81,108 @@ export default async function PropertyDetailPage({
           </CardContent>
         </Card>
 
-        {/* Units */}
+        {/* Current Tenant */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+              Current Tenant
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {activeTenant ? (
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <User className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <Link href={`/tenants/${activeTenant.id}`} className="font-semibold hover:underline text-primary">
+                    {activeTenant.name}
+                  </Link>
+                  {activeTenant.case_number && (
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                      Case: {activeTenant.case_number}
+                    </p>
+                  )}
+                  {activeLease && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Lease: {activeLease.start_date} → {activeLease.end_date ?? 'Ongoing'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No active tenant. Unit is vacant.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Lease History */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold">Units</h2>
-            <AddUnitDialog propertyId={id} />
+            <h2 className="text-base font-semibold">Lease History</h2>
+            <LinkButton size="sm" href="/leases/new">
+              + New Lease
+            </LinkButton>
           </div>
 
-          {!units?.length ? (
+          {!leases?.length ? (
             <Card>
-              <CardContent className="py-10 text-center">
-                <Home className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No units yet. Add the first unit above.</p>
+              <CardContent className="py-8 text-center">
+                <Calendar className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No leases on record for this property.</p>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {units.map((unit) => {
-                const activeLease = getActiveLease(unit)
-                const tenant = activeLease?.tenants
-                return (
-                  <Link key={unit.id} href={`/units/${unit.id}`}>
-                    <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <p className="font-semibold text-sm">Unit {unit.unit_number}</p>
-                            {unit.floor && (
-                              <p className="text-xs text-muted-foreground">Floor {unit.floor}</p>
-                            )}
-                          </div>
-                          <Badge variant={statusBadge(unit.status) as any} className="text-xs capitalize">
-                            {unit.status.replace('_', ' ')}
-                          </Badge>
-                        </div>
-
-                        {tenant ? (
-                          <div className="text-xs text-muted-foreground space-y-0.5">
-                            <p className="font-medium text-foreground">{tenant.name}</p>
-                            <p>${activeLease.rent_amount?.toLocaleString()}/mo</p>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">No active tenant</p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </Link>
-                )
-              })}
-            </div>
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Tenant</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Start</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">End</th>
+                        <th className="text-right px-4 py-2.5 font-medium text-muted-foreground">Rent</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leases.map((lease) => {
+                        const tenant = (lease as any).tenants
+                        return (
+                          <tr key={lease.id} className="border-b last:border-0">
+                            <td className="px-4 py-2.5">
+                              {tenant ? (
+                                <Link href={`/tenants/${tenant.id}`} className="hover:underline text-primary font-medium">
+                                  {tenant.name}
+                                </Link>
+                              ) : '—'}
+                            </td>
+                            <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">{lease.start_date}</td>
+                            <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">{lease.end_date ?? 'Ongoing'}</td>
+                            <td className="px-4 py-2.5 text-right font-medium">
+                              ${Number(lease.rent_amount).toLocaleString()}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <Badge variant={statusVariant(lease.status) as any} className="text-xs capitalize">
+                                {lease.status}
+                              </Badge>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </div>
 
-        {/* Timeline Link */}
-        <div className="pt-2">
+        {/* Timeline link */}
+        <div>
           <LinkButton variant="outline" size="sm" href={`/properties/${id}/timeline`}>
-            View Unit History Timeline
+            View Property Timeline
           </LinkButton>
         </div>
       </div>

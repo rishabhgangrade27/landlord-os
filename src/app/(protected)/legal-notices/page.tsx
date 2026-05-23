@@ -78,9 +78,9 @@ export default async function LegalNoticesPage({
         }
       />
 
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         {/* Tab navigation */}
-        <div className="flex gap-1 mb-5 border-b">
+        <div className="flex gap-1 mb-5 border-b overflow-x-auto">
           {TABS.map((t) => {
             const count = counts[t.key as keyof typeof counts]
             const isActive = tab === t.key || (!tab && t.key === 'all')
@@ -128,71 +128,69 @@ export default async function LegalNoticesPage({
         ) : (
           <Card>
             <CardContent className="p-0">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/30">
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tenant</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Unit</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Notice Type</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Generated</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {notices.map((n) => {
-                    const tenant = (n as any).tenants
-                    const unit = (n as any).units
-                    return (
-                      <tr key={n.id} className="border-b last:border-0 hover:bg-muted/20">
-                        <td className="px-4 py-3">
-                          {tenant ? (
-                            <Link
-                              href={`/tenants/${tenant.id}`}
-                              className="font-medium text-primary hover:underline"
-                            >
-                              {tenant.name}
-                            </Link>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">
-                          {unit
-                            ? `${unit.properties?.name ?? unit.properties?.address ?? '?'} / ${unit.unit_number}`
-                            : '—'}
-                        </td>
-                        <td className="px-4 py-3 font-medium">
-                          {NOTICE_LABELS[n.notice_type ?? ''] ?? n.notice_type ?? '—'}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge
-                            variant={STATUS_VARIANTS[n.status ?? ''] ?? 'secondary'}
-                            className="text-xs capitalize"
-                          >
-                            {n.status?.replace(/_/g, ' ') ?? '—'}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">
-                          {n.generated_at
-                            ? new Date(n.generated_at).toLocaleDateString()
-                            : '—'}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Link href={`/legal-notices/${n.id}`}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/30">
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tenant</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden sm:table-cell">Notice Type</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden md:table-cell">Generated</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {notices.map((n) => {
+                      const tenant = (n as any).tenants
+                      return (
+                        <tr key={n.id} className="border-b last:border-0 hover:bg-muted/20">
+                          <td className="px-4 py-3">
+                            {tenant ? (
+                              <Link
+                                href={`/tenants/${tenant.id}`}
+                                className="font-medium text-primary hover:underline"
+                              >
+                                {tenant.name}
+                              </Link>
+                            ) : (
+                              '—'
+                            )}
+                            <p className="text-xs text-muted-foreground sm:hidden mt-0.5">
+                              {NOTICE_LABELS[n.notice_type ?? ''] ?? n.notice_type ?? '—'}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3 font-medium hidden sm:table-cell">
+                            {NOTICE_LABELS[n.notice_type ?? ''] ?? n.notice_type ?? '—'}
+                          </td>
+                          <td className="px-4 py-3">
                             <Badge
-                              variant="outline"
-                              className="cursor-pointer text-xs hover:bg-muted"
+                              variant={STATUS_VARIANTS[n.status ?? ''] ?? 'secondary'}
+                              className="text-xs capitalize"
                             >
-                              View
+                              {n.status?.replace(/_/g, ' ') ?? '—'}
                             </Badge>
-                          </Link>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">
+                            {n.generated_at
+                              ? new Date(n.generated_at).toLocaleDateString()
+                              : '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Link href={`/legal-notices/${n.id}`}>
+                              <Badge
+                                variant="outline"
+                                className="cursor-pointer text-xs hover:bg-muted"
+                              >
+                                View
+                              </Badge>
+                            </Link>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </CardContent>
           </Card>
         )}

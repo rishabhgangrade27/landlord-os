@@ -23,7 +23,7 @@ export default async function TenantDetailPage({
       supabase.from('tenants').select('*').eq('id', id).single(),
       supabase
         .from('leases')
-        .select('*, units(unit_number, properties(name, address))')
+        .select('*, properties(id, name, address)')
         .eq('tenant_id', id)
         .order('start_date', { ascending: false }),
       supabase
@@ -43,6 +43,7 @@ export default async function TenantDetailPage({
   if (!tenant) notFound()
 
   const activeLease = leases?.find((l) => l.status === 'active')
+  const activeProperty = (activeLease as any)?.properties ?? null
 
   return (
     <div>
@@ -60,14 +61,17 @@ export default async function TenantDetailPage({
         }
       />
 
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <Tabs defaultValue="profile">
-          <TabsList className="mb-6">
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="leases">Leases ({leases?.length ?? 0})</TabsTrigger>
-            <TabsTrigger value="court-ledger">Court Ledger</TabsTrigger>
-            <TabsTrigger value="legal">Legal Notices ({legalNotices?.length ?? 0})</TabsTrigger>
-          </TabsList>
+          {/* Scrollable tab bar on mobile */}
+          <div className="overflow-x-auto pb-0.5 mb-6">
+            <TabsList className="w-max">
+              <TabsTrigger value="profile">Profile</TabsTrigger>
+              <TabsTrigger value="leases">Leases ({leases?.length ?? 0})</TabsTrigger>
+              <TabsTrigger value="court-ledger">Court Ledger</TabsTrigger>
+              <TabsTrigger value="legal">Notices ({legalNotices?.length ?? 0})</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Profile Tab */}
           <TabsContent value="profile" className="space-y-5">
@@ -125,28 +129,25 @@ export default async function TenantDetailPage({
               </CardContent>
             </Card>
 
-            {/* Current Unit */}
+            {/* Current Lease */}
             {activeLease && (
               <Card className="border-green-200 bg-green-50/30">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Current Unit & Lease</CardTitle>
+                  <CardTitle className="text-sm">Current Lease</CardTitle>
                 </CardHeader>
-                <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div>
                     <p className="text-xs text-muted-foreground">Property</p>
-                    <p className="text-sm font-medium">
-                      {(activeLease as any).units?.properties?.name ??
-                        (activeLease as any).units?.properties?.address ?? '—'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Unit</p>
-                    <Link
-                      href={`/units/${activeLease.unit_id}`}
-                      className="text-sm font-medium hover:underline text-primary"
-                    >
-                      {(activeLease as any).units?.unit_number ?? '—'}
-                    </Link>
+                    {activeProperty ? (
+                      <Link
+                        href={`/properties/${activeProperty.id}`}
+                        className="text-sm font-medium hover:underline text-primary"
+                      >
+                        {activeProperty.name ?? activeProperty.address ?? '—'}
+                      </Link>
+                    ) : (
+                      <p className="text-sm font-medium">—</p>
+                    )}
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Monthly Rent</p>
@@ -164,10 +165,14 @@ export default async function TenantDetailPage({
               </Card>
             )}
 
-            {/* Rent Ledger Link */}
-            <div className="flex gap-3">
-              <LinkButton variant="outline" size="sm" href={`/ledger?tenant_id=${id}`}>View Rent Ledger</LinkButton>
-              <LinkButton variant="outline" size="sm" href={`/transactions?tenant_id=${id}`}>View Transactions</LinkButton>
+            {/* Quick links */}
+            <div className="flex flex-wrap gap-3">
+              <LinkButton variant="outline" size="sm" href={`/ledger?tenant_id=${id}`}>
+                View Rent Ledger
+              </LinkButton>
+              <LinkButton variant="outline" size="sm" href={`/transactions?tenant_id=${id}`}>
+                View Transactions
+              </LinkButton>
             </div>
           </TabsContent>
 
@@ -182,39 +187,53 @@ export default async function TenantDetailPage({
             ) : (
               <Card>
                 <CardContent className="p-0">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/30">
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Unit</th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Start</th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">End</th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Rent</th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {leases.map((l) => (
-                        <tr key={l.id} className="border-b last:border-0 hover:bg-muted/20">
-                          <td className="px-4 py-2">
-                            <Link href={`/units/${l.unit_id}`} className="hover:underline text-primary">
-                              {(l as any).units?.unit_number ?? '—'}
-                            </Link>
-                          </td>
-                          <td className="px-4 py-2 text-muted-foreground">{l.start_date}</td>
-                          <td className="px-4 py-2 text-muted-foreground">{l.end_date ?? 'Ongoing'}</td>
-                          <td className="px-4 py-2">${Number(l.rent_amount).toLocaleString()}/mo</td>
-                          <td className="px-4 py-2">
-                            <Badge
-                              variant={l.status === 'active' ? 'default' : 'secondary'}
-                              className="text-xs capitalize"
-                            >
-                              {l.status}
-                            </Badge>
-                          </td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/30">
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Property</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground hidden sm:table-cell">Start</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground hidden sm:table-cell">End</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Rent</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {leases.map((l) => {
+                          const prop = (l as any).properties
+                          return (
+                            <tr key={l.id} className="border-b last:border-0 hover:bg-muted/20">
+                              <td className="px-4 py-2">
+                                {prop ? (
+                                  <Link href={`/properties/${prop.id}`} className="hover:underline text-primary">
+                                    {prop.name ?? prop.address ?? '—'}
+                                  </Link>
+                                ) : '—'}
+                                <p className="text-xs text-muted-foreground sm:hidden mt-0.5">
+                                  {l.start_date} → {l.end_date ?? 'Ongoing'}
+                                </p>
+                              </td>
+                              <td className="px-4 py-2 text-muted-foreground hidden sm:table-cell">
+                                {l.start_date}
+                              </td>
+                              <td className="px-4 py-2 text-muted-foreground hidden sm:table-cell">
+                                {l.end_date ?? 'Ongoing'}
+                              </td>
+                              <td className="px-4 py-2">${Number(l.rent_amount).toLocaleString()}/mo</td>
+                              <td className="px-4 py-2">
+                                <Badge
+                                  variant={l.status === 'active' ? 'default' : 'secondary'}
+                                  className="text-xs capitalize"
+                                >
+                                  {l.status}
+                                </Badge>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -222,9 +241,11 @@ export default async function TenantDetailPage({
 
           {/* Court Ledger Tab */}
           <TabsContent value="court-ledger">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
               <h3 className="font-semibold">Court Ledger — Per-Check Detail</h3>
-              <LinkButton size="sm" variant="outline" href={`/ledger?tenant_id=${id}&export=court`}>Export PDF</LinkButton>
+              <LinkButton size="sm" variant="outline" href={`/ledger?tenant_id=${id}&export=court`}>
+                Export PDF
+              </LinkButton>
             </div>
             {!courtLedger?.length ? (
               <p className="text-sm text-muted-foreground">
@@ -233,36 +254,40 @@ export default async function TenantDetailPage({
             ) : (
               <Card>
                 <CardContent className="p-0">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/30">
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Month</th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Check #</th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Date</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Amount</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Rent Due</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Balance</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {courtLedger.map((row, i) => (
-                        <tr key={i} className="border-b last:border-0">
-                          <td className="px-4 py-2 text-muted-foreground">{row.month_label}</td>
-                          <td className="px-4 py-2 font-mono text-xs">{row.check_number ?? '—'}</td>
-                          <td className="px-4 py-2 text-muted-foreground">{row.check_date ?? '—'}</td>
-                          <td className="px-4 py-2 text-right font-medium">
-                            ${Number(row.amount ?? 0).toFixed(2)}
-                          </td>
-                          <td className="px-4 py-2 text-right text-muted-foreground">
-                            ${Number(row.monthly_due ?? 0).toFixed(2)}
-                          </td>
-                          <td className={`px-4 py-2 text-right font-medium ${Number(row.running_balance ?? 0) > 0 ? 'text-destructive' : 'text-green-600'}`}>
-                            ${Number(row.running_balance ?? 0).toFixed(2)}
-                          </td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/30">
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Month</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Check #</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground hidden sm:table-cell">Date</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground">Amount</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground hidden md:table-cell">Rent Due</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground">Balance</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {courtLedger.map((row, i) => (
+                          <tr key={i} className="border-b last:border-0">
+                            <td className="px-4 py-2 text-muted-foreground">{row.month_label}</td>
+                            <td className="px-4 py-2 font-mono text-xs">{row.check_number ?? '—'}</td>
+                            <td className="px-4 py-2 text-muted-foreground hidden sm:table-cell">
+                              {row.check_date ?? '—'}
+                            </td>
+                            <td className="px-4 py-2 text-right font-medium">
+                              ${Number(row.amount ?? 0).toFixed(2)}
+                            </td>
+                            <td className="px-4 py-2 text-right text-muted-foreground hidden md:table-cell">
+                              ${Number(row.monthly_due ?? 0).toFixed(2)}
+                            </td>
+                            <td className={`px-4 py-2 text-right font-medium ${Number(row.running_balance ?? 0) > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                              ${Number(row.running_balance ?? 0).toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -279,38 +304,43 @@ export default async function TenantDetailPage({
             ) : (
               <Card>
                 <CardContent className="p-0">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/30">
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Type</th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Status</th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Generated</th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Sent</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {legalNotices.map((n) => (
-                        <tr key={n.id} className="border-b last:border-0 hover:bg-muted/20">
-                          <td className="px-4 py-2">
-                            <Link href={`/legal-notices/${n.id}`} className="hover:underline text-primary capitalize">
-                              {n.notice_type?.replace(/_/g, ' ')}
-                            </Link>
-                          </td>
-                          <td className="px-4 py-2">
-                            <Badge variant="secondary" className="text-xs capitalize">
-                              {n.status}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-2 text-muted-foreground">
-                            {n.generated_at ? new Date(n.generated_at).toLocaleDateString() : '—'}
-                          </td>
-                          <td className="px-4 py-2 text-muted-foreground">
-                            {n.sent_at ? new Date(n.sent_at).toLocaleDateString() : '—'}
-                          </td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/30">
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Type</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Status</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground hidden sm:table-cell">Generated</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground hidden sm:table-cell">Sent</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {legalNotices.map((n) => (
+                          <tr key={n.id} className="border-b last:border-0 hover:bg-muted/20">
+                            <td className="px-4 py-2">
+                              <Link
+                                href={`/legal-notices/${n.id}`}
+                                className="hover:underline text-primary capitalize"
+                              >
+                                {n.notice_type?.replace(/_/g, ' ')}
+                              </Link>
+                            </td>
+                            <td className="px-4 py-2">
+                              <Badge variant="secondary" className="text-xs capitalize">
+                                {n.status}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-2 text-muted-foreground hidden sm:table-cell">
+                              {n.generated_at ? new Date(n.generated_at).toLocaleDateString() : '—'}
+                            </td>
+                            <td className="px-4 py-2 text-muted-foreground hidden sm:table-cell">
+                              {n.sent_at ? new Date(n.sent_at).toLocaleDateString() : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </CardContent>
               </Card>
             )}

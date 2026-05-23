@@ -48,14 +48,16 @@ export default async function ReportsPage() {
     <div>
       <PageHeader title="Reports" description="Financial summaries and analytics" />
 
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <Tabs defaultValue="yearly">
-          <TabsList className="mb-6">
-            <TabsTrigger value="yearly">Yearly Payments</TabsTrigger>
-            <TabsTrigger value="profit">Monthly Profit</TabsTrigger>
-            <TabsTrigger value="property">By Property</TabsTrigger>
-            <TabsTrigger value="expenses">Log Expense</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto mb-6">
+            <TabsList className="w-max min-w-full sm:w-auto">
+              <TabsTrigger value="yearly">Yearly</TabsTrigger>
+              <TabsTrigger value="profit">Monthly Profit</TabsTrigger>
+              <TabsTrigger value="property">By Property</TabsTrigger>
+              <TabsTrigger value="expenses">Expenses</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Yearly Payments */}
           <TabsContent value="yearly">
@@ -67,30 +69,35 @@ export default async function ReportsPage() {
                 {!yearlyPayments?.length ? (
                   <p className="p-4 text-sm text-muted-foreground">No payment data available yet.</p>
                 ) : (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/30">
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Tenant</th>
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Year</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Due</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Paid</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Balance</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {yearlyPayments.map((row, i) => (
-                        <tr key={i} className="border-b last:border-0">
-                          <td className="px-4 py-2 font-medium">{(row as any).tenant_name ?? (row as any).full_legal_name ?? row.tenant_id?.slice(0, 8)}</td>
-                          <td className="px-4 py-2">{row.year}</td>
-                          <td className="px-4 py-2 text-right">${Number(row.total_due).toLocaleString()}</td>
-                          <td className="px-4 py-2 text-right text-green-700">${Number(row.total_paid).toLocaleString()}</td>
-                          <td className={`px-4 py-2 text-right font-semibold ${Number(row.total_balance) > 0 ? 'text-destructive' : 'text-green-700'}`}>
-                            ${Number(row.total_balance).toLocaleString()}
-                          </td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/30">
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Tenant</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground hidden sm:table-cell">Year</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground hidden md:table-cell">Due</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground hidden md:table-cell">Paid</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground">Balance</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {yearlyPayments.map((row, i) => (
+                          <tr key={i} className="border-b last:border-0">
+                            <td className="px-4 py-2 font-medium">
+                              {(row as any).tenant_name ?? (row as any).full_legal_name ?? row.tenant_id?.slice(0, 8)}
+                              <span className="text-xs text-muted-foreground sm:hidden ml-1">({row.year})</span>
+                            </td>
+                            <td className="px-4 py-2 hidden sm:table-cell">{row.year}</td>
+                            <td className="px-4 py-2 text-right hidden md:table-cell">${Number(row.total_due).toLocaleString()}</td>
+                            <td className="px-4 py-2 text-right text-green-700 hidden md:table-cell">${Number(row.total_paid).toLocaleString()}</td>
+                            <td className={`px-4 py-2 text-right font-semibold ${Number(row.total_balance) > 0 ? 'text-destructive' : 'text-green-700'}`}>
+                              ${Number(row.total_balance).toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -106,30 +113,32 @@ export default async function ReportsPage() {
                 {!monthlyProfit?.length ? (
                   <p className="p-4 text-sm text-muted-foreground">No data available yet. Ensure transactions are verified and expenses are logged.</p>
                 ) : (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/30">
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Month</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Income</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Expenses</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Profit</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {monthlyProfit.map((row, i) => (
-                        <tr key={i} className="border-b last:border-0">
-                          <td className="px-4 py-2">
-                            {row.month ? new Date(row.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—'}
-                          </td>
-                          <td className="px-4 py-2 text-right text-green-700">${Number(row.income).toLocaleString()}</td>
-                          <td className="px-4 py-2 text-right text-destructive">${Number(row.expenses).toLocaleString()}</td>
-                          <td className={`px-4 py-2 text-right font-semibold ${Number(row.profit) >= 0 ? 'text-green-700' : 'text-destructive'}`}>
-                            ${Number(row.profit).toLocaleString()}
-                          </td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/30">
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Month</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground hidden sm:table-cell">Income</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground hidden sm:table-cell">Expenses</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground">Profit</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {monthlyProfit.map((row, i) => (
+                          <tr key={i} className="border-b last:border-0">
+                            <td className="px-4 py-2">
+                              {row.month ? new Date(row.month).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—'}
+                            </td>
+                            <td className="px-4 py-2 text-right text-green-700 hidden sm:table-cell">${Number(row.income).toLocaleString()}</td>
+                            <td className="px-4 py-2 text-right text-destructive hidden sm:table-cell">${Number(row.expenses).toLocaleString()}</td>
+                            <td className={`px-4 py-2 text-right font-semibold ${Number(row.profit) >= 0 ? 'text-green-700' : 'text-destructive'}`}>
+                              ${Number(row.profit).toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -145,28 +154,30 @@ export default async function ReportsPage() {
                 {!propertyProfit?.length ? (
                   <p className="p-4 text-sm text-muted-foreground">No property data available yet.</p>
                 ) : (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/30">
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Property</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Income</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Expenses</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Profit</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {propertyProfit.map((row: any, i: number) => (
-                        <tr key={i} className="border-b last:border-0">
-                          <td className="px-4 py-2 font-medium">{row.property_name ?? row.address ?? '—'}</td>
-                          <td className="px-4 py-2 text-right text-green-700">${Number(row.income).toLocaleString()}</td>
-                          <td className="px-4 py-2 text-right text-destructive">${Number(row.expenses).toLocaleString()}</td>
-                          <td className={`px-4 py-2 text-right font-semibold ${Number(row.profit) >= 0 ? 'text-green-700' : 'text-destructive'}`}>
-                            ${Number(row.profit).toLocaleString()}
-                          </td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/30">
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Property</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground hidden sm:table-cell">Income</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground hidden sm:table-cell">Expenses</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground">Profit</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {propertyProfit.map((row: any, i: number) => (
+                          <tr key={i} className="border-b last:border-0">
+                            <td className="px-4 py-2 font-medium">{row.property_name ?? row.address ?? '—'}</td>
+                            <td className="px-4 py-2 text-right text-green-700 hidden sm:table-cell">${Number(row.income).toLocaleString()}</td>
+                            <td className="px-4 py-2 text-right text-destructive hidden sm:table-cell">${Number(row.expenses).toLocaleString()}</td>
+                            <td className={`px-4 py-2 text-right font-semibold ${Number(row.profit) >= 0 ? 'text-green-700' : 'text-destructive'}`}>
+                              ${Number(row.profit).toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </CardContent>
             </Card>

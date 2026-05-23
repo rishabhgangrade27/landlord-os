@@ -46,7 +46,7 @@ export default async function MaintenancePage() {
         }
       />
 
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         {!tickets?.length ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Wrench className="w-10 h-10 text-muted-foreground mb-3" />
@@ -60,48 +60,46 @@ export default async function MaintenancePage() {
         ) : (
           <Card>
             <CardContent className="p-0">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/30">
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Title</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Unit</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Category</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Priority</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Contractor</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tickets.map((t) => {
-                    const unit = (t as any).units
-                    const contractor = (t as any).contractors
-                    return (
-                      <tr key={t.id} className="border-b last:border-0 hover:bg-muted/20">
-                        <td className="px-4 py-3">
-                          <Link href={`/maintenance/${t.id}`} className="font-medium hover:underline text-primary">
-                            {t.title}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground text-xs">
-                          {unit ? `${unit.properties?.name ?? unit.properties?.address ?? '?'} / ${unit.unit_number}` : '—'}
-                        </td>
-                        <td className="px-4 py-3 capitalize text-muted-foreground">{t.category ?? '—'}</td>
-                        <td className="px-4 py-3">
-                          <Badge variant={PRIORITY_COLORS[t.priority ?? ''] ?? 'secondary'} className="text-xs capitalize">
-                            {t.priority ?? '—'}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">{contractor?.name ?? '—'}</td>
-                        <td className="px-4 py-3">
-                          <Badge variant={STATUS_COLORS[t.status ?? ''] ?? 'secondary'} className="text-xs capitalize">
-                            {t.status?.replace(/_/g, ' ') ?? '—'}
-                          </Badge>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/30">
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Title</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Category</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Priority</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Contractor</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tickets.map((t) => {
+                      const contractor = (t as any).contractors
+                      return (
+                        <tr key={t.id} className="border-b last:border-0 hover:bg-muted/20">
+                          <td className="px-4 py-3">
+                            <Link href={`/maintenance/${t.id}`} className="font-medium hover:underline text-primary">
+                              {t.title}
+                            </Link>
+                            <p className="text-xs text-muted-foreground sm:hidden capitalize mt-0.5">{t.category ?? '—'}</p>
+                          </td>
+                          <td className="px-4 py-3 capitalize text-muted-foreground hidden sm:table-cell">{t.category ?? '—'}</td>
+                          <td className="px-4 py-3">
+                            <Badge variant={PRIORITY_COLORS[t.priority ?? ''] ?? 'secondary'} className="text-xs capitalize">
+                              {t.priority ?? '—'}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{contractor?.name ?? '—'}</td>
+                          <td className="px-4 py-3">
+                            <Badge variant={STATUS_COLORS[t.status ?? ''] ?? 'secondary'} className="text-xs capitalize">
+                              {t.status?.replace(/_/g, ' ') ?? '—'}
+                            </Badge>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </CardContent>
           </Card>
         )}

@@ -98,7 +98,7 @@ export default function UploadPage() {
         description="Upload HRA check PDFs or images. Processing starts automatically."
       />
 
-      <div className="p-6 space-y-5 max-w-2xl">
+      <div className="p-4 md:p-6 space-y-5 max-w-2xl">
         {/* Instructions */}
         <Card className="bg-blue-50/50 border-blue-200">
           <CardContent className="p-4 text-sm text-blue-800 space-y-1">

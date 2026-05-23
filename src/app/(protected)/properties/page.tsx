@@ -30,7 +30,7 @@ export default async function PropertiesPage() {
         }
       />
 
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         {!properties?.length ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Building2 className="w-10 h-10 text-muted-foreground mb-3" />

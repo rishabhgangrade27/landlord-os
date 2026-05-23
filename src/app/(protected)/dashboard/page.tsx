@@ -62,7 +62,7 @@ export default async function DashboardPage() {
     <div>
       <PageHeader title="Dashboard" description="Overview of your properties" />
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-6">
         {/* Row 1: Core counts */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>

@@ -64,9 +64,9 @@ export default async function LedgerPage({
         }
       />
 
-      <div className="p-6 space-y-5">
+      <div className="p-4 md:p-6 space-y-5">
         {/* Summary */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">Total Outstanding</p>
@@ -136,9 +136,9 @@ export default async function LedgerPage({
                   <thead>
                     <tr className="border-b bg-muted/30">
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">Tenant</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Month</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">Due</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">Paid</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Month</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Due</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Paid</th>
                       <th className="text-right px-4 py-3 font-medium text-muted-foreground">Balance</th>
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">Flags</th>
                     </tr>
@@ -155,14 +155,17 @@ export default async function LedgerPage({
                             <Link href={`/tenants/${row.tenant_id}`} className="font-medium hover:underline text-primary">
                               {tenantMap.get(row.tenant_id ?? '') ?? row.tenant_id?.slice(0, 8) ?? '—'}
                             </Link>
+                            <p className="text-xs text-muted-foreground sm:hidden">
+                              {row.month ? new Date(row.month).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—'}
+                            </p>
                           </td>
-                          <td className="px-4 py-2.5 text-muted-foreground">
+                          <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">
                             {row.month ? new Date(row.month).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—'}
                           </td>
-                          <td className="px-4 py-2.5 text-right">
+                          <td className="px-4 py-2.5 text-right hidden md:table-cell">
                             ${Number(row.due_amount ?? 0).toFixed(2)}
                           </td>
-                          <td className="px-4 py-2.5 text-right text-green-700">
+                          <td className="px-4 py-2.5 text-right text-green-700 hidden md:table-cell">
                             ${Number(row.paid_amount ?? 0).toFixed(2)}
                           </td>
                           <td className={`px-4 py-2.5 text-right font-semibold ${balance > 0 ? 'text-destructive' : 'text-green-700'}`}>

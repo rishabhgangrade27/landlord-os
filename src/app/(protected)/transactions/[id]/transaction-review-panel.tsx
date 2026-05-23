@@ -204,7 +204,7 @@ export function TransactionReviewPanel({
     <div className="flex flex-col lg:flex-row gap-0 flex-1 min-h-0 overflow-hidden">
 
       {/* ── LEFT: PDF Viewer ──────────────────────────────────────────────── */}
-      <div className="lg:w-[55%] flex flex-col border-r bg-muted/10">
+      <div className="lg:w-[55%] flex flex-col border-r bg-muted/10 min-h-[50vh] lg:min-h-0">
         {/* Header bar */}
         <div className="flex items-center justify-between px-4 py-2.5 border-b bg-background">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -249,7 +249,7 @@ export function TransactionReviewPanel({
       </div>
 
       {/* ── RIGHT: Review Form ────────────────────────────────────────────── */}
-      <div className="lg:w-[45%] overflow-y-auto">
+      <div className="lg:w-[45%] overflow-y-auto max-h-[none] lg:max-h-full">
         <div className="p-5 space-y-4">
 
           {/* Status row */}

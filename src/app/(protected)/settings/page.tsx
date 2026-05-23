@@ -17,7 +17,7 @@ export default async function SettingsPage() {
     <div>
       <PageHeader title="Settings" description="System configuration" />
 
-      <div className="p-6 space-y-5 max-w-xl">
+      <div className="p-4 md:p-6 space-y-5 max-w-xl">
         {/* Processing Mode */}
         <Card>
           <CardHeader className="pb-3">

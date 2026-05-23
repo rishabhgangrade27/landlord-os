@@ -1,0 +1,232 @@
+import { createClient } from '@/lib/supabase/server'
+import { PageHeader } from '@/components/layout/page-header'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { AddExpenseForm } from './add-expense-form'
+
+export default async function ReportsPage() {
+  const supabase = await createClient()
+
+  const [
+    { data: yearlyPayments },
+    { data: propertyProfit },
+    { data: monthlyProfit },
+    { data: properties },
+    { data: units },
+    { data: recentExpenses },
+  ] = await Promise.all([
+    supabase
+      .from('view_yearly_payments')
+      .select('*')
+      .order('year', { ascending: false })
+      .limit(50),
+    supabase
+      .from('property_profit')
+      .select('*')
+      .order('profit', { ascending: false }),
+    supabase
+      .from('monthly_profit')
+      .select('*')
+      .order('month', { ascending: false })
+      .limit(24),
+    supabase
+      .from('properties')
+      .select('id, name, address, nickname')
+      .order('name'),
+    supabase
+      .from('units')
+      .select('id, unit_number, property_id')
+      .order('unit_number'),
+    supabase
+      .from('expenses')
+      .select('id, category, description, amount, expense_date, property_id')
+      .order('expense_date', { ascending: false })
+      .limit(20),
+  ])
+
+  return (
+    <div>
+      <PageHeader title="Reports" description="Financial summaries and analytics" />
+
+      <div className="p-6">
+        <Tabs defaultValue="yearly">
+          <TabsList className="mb-6">
+            <TabsTrigger value="yearly">Yearly Payments</TabsTrigger>
+            <TabsTrigger value="profit">Monthly Profit</TabsTrigger>
+            <TabsTrigger value="property">By Property</TabsTrigger>
+            <TabsTrigger value="expenses">Log Expense</TabsTrigger>
+          </TabsList>
+
+          {/* Yearly Payments */}
+          <TabsContent value="yearly">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Yearly Payment Summary — Per Tenant</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {!yearlyPayments?.length ? (
+                  <p className="p-4 text-sm text-muted-foreground">No payment data available yet.</p>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Tenant</th>
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Year</th>
+                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Due</th>
+                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Paid</th>
+                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {yearlyPayments.map((row, i) => (
+                        <tr key={i} className="border-b last:border-0">
+                          <td className="px-4 py-2 font-medium">{(row as any).tenant_name ?? (row as any).full_legal_name ?? row.tenant_id?.slice(0, 8)}</td>
+                          <td className="px-4 py-2">{row.year}</td>
+                          <td className="px-4 py-2 text-right">${Number(row.total_due).toLocaleString()}</td>
+                          <td className="px-4 py-2 text-right text-green-700">${Number(row.total_paid).toLocaleString()}</td>
+                          <td className={`px-4 py-2 text-right font-semibold ${Number(row.total_balance) > 0 ? 'text-destructive' : 'text-green-700'}`}>
+                            ${Number(row.total_balance).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Monthly Profit */}
+          <TabsContent value="profit">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Monthly Income vs Expenses</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {!monthlyProfit?.length ? (
+                  <p className="p-4 text-sm text-muted-foreground">No data available yet. Ensure transactions are verified and expenses are logged.</p>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Month</th>
+                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Income</th>
+                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Expenses</th>
+                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Profit</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {monthlyProfit.map((row, i) => (
+                        <tr key={i} className="border-b last:border-0">
+                          <td className="px-4 py-2">
+                            {row.month ? new Date(row.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—'}
+                          </td>
+                          <td className="px-4 py-2 text-right text-green-700">${Number(row.income).toLocaleString()}</td>
+                          <td className="px-4 py-2 text-right text-destructive">${Number(row.expenses).toLocaleString()}</td>
+                          <td className={`px-4 py-2 text-right font-semibold ${Number(row.profit) >= 0 ? 'text-green-700' : 'text-destructive'}`}>
+                            ${Number(row.profit).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Property Profit */}
+          <TabsContent value="property">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Profit by Property</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {!propertyProfit?.length ? (
+                  <p className="p-4 text-sm text-muted-foreground">No property data available yet.</p>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Property</th>
+                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Income</th>
+                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Expenses</th>
+                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Profit</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {propertyProfit.map((row: any, i: number) => (
+                        <tr key={i} className="border-b last:border-0">
+                          <td className="px-4 py-2 font-medium">{row.property_name ?? row.address ?? '—'}</td>
+                          <td className="px-4 py-2 text-right text-green-700">${Number(row.income).toLocaleString()}</td>
+                          <td className="px-4 py-2 text-right text-destructive">${Number(row.expenses).toLocaleString()}</td>
+                          <td className={`px-4 py-2 text-right font-semibold ${Number(row.profit) >= 0 ? 'text-green-700' : 'text-destructive'}`}>
+                            ${Number(row.profit).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          {/* Log Expense */}
+          <TabsContent value="expenses">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Add Expense</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <AddExpenseForm
+                    properties={(properties ?? []) as any}
+                    units={(units ?? []) as any}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Recent Expenses</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {!recentExpenses?.length ? (
+                    <p className="p-4 text-sm text-muted-foreground">No expenses logged yet.</p>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/30">
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Date</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Category</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Description</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recentExpenses.map((e) => (
+                          <tr key={e.id} className="border-b last:border-0">
+                            <td className="px-4 py-2 text-muted-foreground text-xs">
+                              {e.expense_date ? new Date(e.expense_date).toLocaleDateString() : '—'}
+                            </td>
+                            <td className="px-4 py-2 capitalize">{e.category}</td>
+                            <td className="px-4 py-2 text-muted-foreground text-xs">
+                              {e.description ?? '—'}
+                            </td>
+                            <td className="px-4 py-2 text-right font-semibold text-destructive">
+                              ${Number(e.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  )
+}

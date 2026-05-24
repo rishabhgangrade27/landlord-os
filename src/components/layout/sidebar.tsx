@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils'
 import {
   Building2,
   LayoutDashboard,
-  Home,
   Users,
   FileText,
   BookOpen,
@@ -40,7 +39,6 @@ const navGroups = [
     label: 'Properties',
     items: [
       { href: '/properties', label: 'Properties', icon: Building2 },
-      { href: '/units', label: 'Units', icon: Home },
     ],
   },
   {

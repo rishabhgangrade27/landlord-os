@@ -18,7 +18,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile sidebar — Sheet drawer */}
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="left" className="p-0 w-64 border-r">
+        <SheetContent side="left" className="p-0 w-72 border-r" showCloseButton={false}>
           <Sidebar />
         </SheetContent>
       </Sheet>

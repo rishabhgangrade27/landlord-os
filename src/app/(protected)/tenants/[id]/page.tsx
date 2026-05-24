@@ -8,7 +8,6 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { EditTenantDialog } from './edit-tenant-dialog'
-import { LedgerExportButton } from '@/app/(protected)/ledger/ledger-export-button'
 import { MaskedField } from './masked-field'
 
 export default async function TenantDetailPage({
@@ -244,7 +243,6 @@ export default async function TenantDetailPage({
           <TabsContent value="court-ledger">
             <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
               <h3 className="font-semibold">Court Ledger — Per-Check Detail</h3>
-              <LedgerExportButton tenantId={id} type="court" />
             </div>
             {!courtLedger?.length ? (
               <p className="text-sm text-muted-foreground">

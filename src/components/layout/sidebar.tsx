@@ -95,7 +95,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-60 min-h-screen flex flex-col bg-sidebar border-r border-sidebar-border">
+    <aside className="w-full h-full flex flex-col bg-sidebar border-r border-sidebar-border">
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-4 py-4 border-b border-sidebar-border">
         <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-primary-foreground shrink-0">

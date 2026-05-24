@@ -96,8 +96,7 @@ export function EditTenantDialog({ tenant }: { tenant: Tenant }) {
           </div>
 
           <div className="p-3 bg-muted/30 rounded-md text-xs text-muted-foreground">
-            <strong>Case Number: {tenant.case_number ?? 'not set'}</strong> — cannot be changed here.
-            Contact Rishabh if case number needs to be corrected.
+            <strong>Case Number: {tenant.case_number ?? 'not set'}</strong> — edit directly in Supabase.
           </div>
 
           <div className="space-y-2">

@@ -133,9 +133,9 @@
         "resource": "document",
         "modelId": {
           "__rl": true,
-          "value": "models/gemini-3-flash-preview",
+          "value": "models/gemini-2.0-flash",
           "mode": "list",
-          "cachedResultName": "models/gemini-3-flash-preview"
+          "cachedResultName": "models/gemini-2.0-flash"
         },
         "text": "=You are a highly specialized financial auditor and OCR expert specializing in NYC Department of Social Services (DSS) Public Assistance checks, Western Union Money Orders, and standard bank checks.\n\nAnalyze this multi-page PDF document. It contains a mix of check fronts, check stubs, and the backs of checks (endorsements).\n\nFor EACH PAGE, evaluate its contents.\n\nCRITICAL RULE FOR 'is_blank':\n\nIf the page is the BACK of a check (showing 'Endorse Here', signatures, or 'Deposit Only'), a completely blank page, or just a payment stub/receipt (not the actual negotiable check), you MUST set 'is_blank' to true.\n\nIf it is a valid FRONT of a check or money order, set 'is_blank' to false and extract the data.\n\nEXTRACTION RULES (Only if is_blank is false):\n\ncase_number: Look for the 'CASE NUMBER' field (e.g., 00037145839J-01). Western Union money orders usually DO NOT have this; return null if not explicitly found. Do not guess.\n\namount: The 'TOTAL DOLLARS' or 'AMOUNT' field. Convert this to a pure number (e.g., 200.00). Ignore stars or symbols like ********$.\n\ncheck_number: Look for the 'CHECK NUMBER' on the top right or the middle number in the bottom MICR line (e.g., 25595287).\n\ncheck_date: The 'DATE' of the check. Format it strictly as YYYY-MM-DD.\n\nrent_from / rent_to: Look for the table specifying the payment period (e.g., 'FROM: 08/14/2020 TO: 08/28/2020'). Extract these dates exactly as written. If not found, return null.\n\nReturn a strict JSON Array containing objects for EVERY page. Schema:\n[ { \"page_number\": number, \"is_blank\": boolean, \"case_number\": string | null, \"amount\": number | null, \"check_number\": string | null, \"check_date\": string | null, \"rent_from\": string | null, \"rent_to\": string | null } ]",
         "inputType": "binary",
@@ -332,7 +332,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Access previous nodes data\nconst freshReceipts = $(\"Calculate Score & Format\").all();\nconst dbDuplicates = $(\"Check Duplicates\").all().filter(i => i.json.id);\nconst allTenants = $(\"Get All Tenants\").all();\n\nreturn freshReceipts.map(item => {\n  const receipt = item.json;\n\n  // 1. Find Tenant Match (Case Number) \n  const tenant = allTenants.find(t => t.json.case_number === receipt.case_number);\n\n  // 2. Find Duplicate Match (Case# + Check# + Amount)\n  const duplicate = dbDuplicates.find(d =>\n    d.json.extracted_case_number === receipt.case_number &&\n    d.json.extracted_check_number === receipt.check_number &&\n    d.json.extracted_amount === receipt.amount\n  );\n\n  // 3. Define Final Status Logic\n  let status = 'needs_review';\n  \n  if (duplicate) {\n    status = 'duplicate_suspected'; // High priority\n  } else if (receipt.score > 0.75 && tenant) {\n    status = 'processing'; // Auto-process if clear\n  }\n\n  // Returning keys that match Supabase columns exactly\n  return {\n    json: {\n      case_number: receipt.case_number,\n      check_number: receipt.check_number,\n      extracted_amount: receipt.amount,\n      extracted_check_date: receipt.check_date,\n      extracted_rent_from: receipt.rent_from,\n      extracted_rent_to: receipt.rent_to,\n      page_number: receipt.page_number,\n      matched_tenant_id: tenant ? tenant.json.id : null,\n      duplicate_suspected: !!duplicate,\n      duplicate_reference_id: duplicate ? duplicate.json.id : null,\n      status: status,\n      ocr_confidence: receipt.score\n    }\n  };\n});"
+        "jsCode": "// ── Setup ───────────────────────────────────────────────────────────────\nconst freshReceipts = $(\"Calculate Score & Format\").all();\nconst dbDuplicates = $(\"Check Duplicates\").all().filter(i => i.json.id);\nconst allTenants = $(\"Get All Tenants\").all();\n\n// Count non-null/non-empty fields — more filled = more reliable record\nfunction dataScore(r) {\n  return [r.case_number, r.check_number, r.amount, r.check_date, r.rent_from, r.rent_to]\n    .filter(v => v != null && v !== '').length;\n}\n\n// Dedup key: case_number|check_number|amount\n// Returns null if we have no identifiers to deduplicate on\nfunction checkKey(r) {\n  if (!r.case_number && !r.check_number) return null;\n  return (r.case_number || '') + '|' + (r.check_number || '') + '|' + (r.amount || '');\n}\n\n// ── PASS 1: Find the real record for each unique check within this PDF ───\n// Rule: highest data score = real; first occurrence wins on ties\nconst batchGroups = {};\nfreshReceipts.forEach((item, idx) => {\n  const key = checkKey(item.json);\n  if (!key) return;\n  const score = dataScore(item.json);\n  if (!batchGroups[key] || score > batchGroups[key].realScore) {\n    batchGroups[key] = { realIdx: idx, realScore: score };\n  }\n});\n\n// ── PASS 2: Build one output row per page ────────────────────────────────\nreturn freshReceipts.map((item, idx) => {\n  const receipt = item.json;\n\n  // Direct match — case numbers in DB must match Gemini output exactly (with leading zeros)\n  const tenant = allTenants.find(t => t.json.case_number === receipt.case_number);\n\n  // Within-PDF duplicate? This idx is not the chosen real record for this key\n  const key = checkKey(receipt);\n  const inBatchDuplicate = key !== null && batchGroups[key] && batchGroups[key].realIdx !== idx;\n\n  // Cross-PDF duplicate? Same check already in DB from a previous upload\n  const dbDuplicate = dbDuplicates.find(d =>\n    d.json.extracted_case_number === receipt.case_number &&\n    d.json.extracted_check_number === receipt.check_number &&\n    d.json.extracted_amount === receipt.amount\n  );\n\n  // DB row is the real one only if it has same or more data than current\n  let dbDuplicateIsReal = false;\n  if (dbDuplicate) {\n    const dbScore = [\n      dbDuplicate.json.extracted_case_number,\n      dbDuplicate.json.extracted_check_number,\n      dbDuplicate.json.extracted_amount,\n      dbDuplicate.json.extracted_check_date,\n      dbDuplicate.json.extracted_rent_from,\n      dbDuplicate.json.extracted_rent_to\n    ].filter(v => v != null && v !== '').length;\n    dbDuplicateIsReal = dataScore(receipt) <= dbScore;\n  }\n\n  const isDuplicate = inBatchDuplicate || (!!dbDuplicate && dbDuplicateIsReal);\n  // Reference ID only available for cross-PDF duplicates (in-PDF real row not yet inserted)\n  const duplicateRefId = (dbDuplicate && dbDuplicateIsReal) ? dbDuplicate.json.id : null;\n\n  let status = 'needs_review';\n  if (isDuplicate) {\n    status = 'duplicate_suspected';\n  } else if (receipt.score > 0.75 && tenant) {\n    status = 'processing';\n  }\n\n  return {\n    json: {\n      case_number: receipt.case_number,\n      check_number: receipt.check_number,\n      extracted_amount: receipt.amount,\n      extracted_check_date: receipt.check_date,\n      extracted_rent_from: receipt.rent_from,\n      extracted_rent_to: receipt.rent_to,\n      page_number: receipt.page_number,\n      matched_tenant_id: tenant ? tenant.json.id : null,\n      duplicate_suspected: isDuplicate,\n      duplicate_reference_id: duplicateRefId,\n      status: status,\n      ocr_confidence: receipt.score\n    }\n  };\n});"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -420,7 +420,7 @@
     },
     {
       "parameters": {
-        "sendTo": "business.rishabhjgangrade@gmail.com",
+        "sendTo": "skg71885@gmail.com",
         "subject": "LandlordOS — Upload Ready for Review",
         "emailType": "text",
         "message": "=Sonu, your upload is ready.\n\nTotal pages: {{ $json.total_pages }}\nSuccessfully processed: {{ $json.processed_pages }}\nFlagged as blank: {{ $json.blank_pages }}\n\nCheck your dashboard for review.",
@@ -507,14 +507,9 @@
         "filters": {
           "conditions": [
             {
-              "keyName": "flag_30_day",
-              "condition": "eq",
-              "keyValue": "=true"
-            },
-            {
-              "keyName": "flag_60_day",
-              "condition": "eq",
-              "keyValue": "=true"
+              "keyName": "or",
+              "condition": "",
+              "keyValue": "(flag_30_day.eq.true,flag_60_day.eq.true)"
             }
           ]
         }
@@ -720,7 +715,7 @@
     },
     {
       "parameters": {
-        "sendTo": "business.rishabhjgangrade@gmai.com",
+        "sendTo": "skg71885@gmail.com",
         "subject": "=30-Day Overdue Alert: {{ $('Loop (Split In Batches)').item.json.tenant_name }}",
         "emailType": "text",
         "message": "=Tenant {{ $('Loop (Split In Batches)').item.json.tenant_name }} at {{ $('Loop (Split In Batches)').item.json.unit_number }} is 30 days behind. Balance: ${{ $('Loop (Split In Batches)').item.json.balance }}.\n\nA draft notice has been prepared in the dashboard.",
@@ -814,7 +809,7 @@
     },
     {
       "parameters": {
-        "sendTo": "business.rishabhjgangrade@gmai.com",
+        "sendTo": "skg71885@gmail.com",
         "subject": "=URGENT 60-Day Overdue: {{ $('Loop (Split In Batches)').item.json.tenant_name }}",
         "emailType": "text",
         "message": "=Tenant {{ $('Loop (Split In Batches)').item.json.tenant_name }} is now 60 days behind. Balance: ${{ $('Loop (Split In Batches)').item.json.balance }}.\n\nDraft 60-day AND 90-day notices have been prepared.\n\nReview and send to attorney when ready.",
@@ -1074,7 +1069,7 @@
     },
     {
       "parameters": {
-        "sendTo": "=business.rishabhjgangrade@gmail.com",
+        "sendTo": "=skg71885@gmail.com",
         "subject": "=CSV Rental Ledger — {{ $('Fetch Tenant Data').first().json.name }} — {{ $now.format('MMMM yyyy') }}",
         "emailType": "text",
         "message": "=Please find attached the rental ledger report for {{ $('Fetch Tenant Data').first().json.name }}.\n\nCase Number: {{ $('Fetch Tenant Data').first().json.case_number }}\nAddress: {{ $('Fetch Tenant Data').first().json.address }}\nReport Date: {{ $now.format('MMMM d, yyyy') }}\n\nThis report was generated by LandlordOS.",
@@ -1104,7 +1099,7 @@
     },
     {
       "parameters": {
-        "sendTo": "=business.rishabhjgangrade@gmail.com",
+        "sendTo": "=skg71885@gmail.com",
         "subject": "=PDF Rental Ledger — {{ $('Fetch Tenant Data').first().json.name }} — {{ $now.format('MMMM yyyy') }}",
         "emailType": "text",
         "message": "=Please find attached the rental ledger report for {{ $('Fetch Tenant Data').first().json.name }}.\n\nCase Number: {{ $('Fetch Tenant Data').first().json.case_number }}\nAddress: {{ $('Fetch Tenant Data').first().json.address }}\nReport Date: {{ $now.format('MMMM d, yyyy') }}\n\nThis report was generated by LandlordOS.",
@@ -1134,7 +1129,7 @@
     },
     {
       "parameters": {
-        "sendTo": "=business.rishabhjgangrade@gmail.com",
+        "sendTo": "=skg71885@gmail.com",
         "subject": "=XLSX Rental Ledger — {{ $('Fetch Tenant Data').first().json.name }} — {{ $now.format('MMMM yyyy') }}",
         "emailType": "text",
         "message": "=Please find attached the rental ledger report for {{ $('Fetch Tenant Data').first().json.name }}.\n\nCase Number: {{ $('Fetch Tenant Data').first().json.case_number }}\nAddress: {{ $('Fetch Tenant Data').first().json.address }}\nReport Date: {{ $now.format('MMMM d, yyyy') }}\n\nThis report was generated by LandlordOS.",

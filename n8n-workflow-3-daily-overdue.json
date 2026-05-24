@@ -9,14 +9,9 @@
         "filters": {
           "conditions": [
             {
-              "keyName": "flag_30_day",
-              "condition": "eq",
-              "keyValue": "true"
-            },
-            {
-              "keyName": "flag_60_day",
-              "condition": "eq",
-              "keyValue": "true"
+              "keyName": "or",
+              "condition": "",
+              "keyValue": "(flag_30_day.eq.true,flag_60_day.eq.true)"
             }
           ]
         }

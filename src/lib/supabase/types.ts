@@ -8,6 +8,8 @@ export type Property = {
   state: string | null
   zip: string | null
   property_type: string | null
+  status: string | null
+  nickname: string | null
   created_at: string
 }
 
@@ -21,7 +23,6 @@ export type Unit = {
   notes: string | null
   status: 'occupied' | 'vacant' | 'under_construction' | string
   created_at: string
-  updated_at: string
 }
 
 export type Tenant = {
@@ -33,12 +34,12 @@ export type Tenant = {
   phone: string | null
   address: string | null
   unit_id: string | null
+  household_size: number | null
   ssn_encrypted: string | null
   state_id: string | null
   notes: string | null
   status: 'active' | 'moved_out' | string
   created_at: string
-  updated_at: string | null
 }
 
 export type Lease = {
@@ -50,12 +51,8 @@ export type Lease = {
   end_date: string | null
   rent_amount: number
   status: 'active' | 'expired' | string
-  renewal_flag: boolean | null
   notes: string | null
   created_at: string
-  updated_at: string | null
-  created_by: string | null
-  updated_by: string | null
 }
 
 export type Transaction = {
@@ -65,10 +62,18 @@ export type Transaction = {
   extracted_check_number: string | null
   extracted_check_date: string | null
   extracted_amount: number | null
+  extracted_rent_from: string | null
+  extracted_rent_to: string | null
   ocr_confidence: number | null
   duplicate_suspected: boolean | null
+  duplicate_reference_id: string | null
   page_number: number | null
   source_pdf_url: string | null
+  file_bucket: string | null
+  file_path: string | null
+  review_notes: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
   status:
     | 'uploaded'
     | 'processing'
@@ -140,7 +145,6 @@ export type Expense = {
   description: string | null
   amount: number
   expense_date: string
-  linked_ticket_id: string | null
   created_at: string
 }
 
@@ -179,8 +183,6 @@ export type LegalTemplate = {
   title: string
   notice_type: string
   body: string
-  placeholders: Record<string, unknown> | null
-  jurisdiction: string | null
   is_active: boolean
   created_at: string
 }
@@ -188,6 +190,26 @@ export type LegalTemplate = {
 export type SystemSettings = {
   id: number
   processing_mode: 'immediate' | 'scheduled'
+}
+
+export type SystemError = {
+  id: string
+  workflow_name: string | null
+  error_message: string | null
+  error_data: Record<string, unknown> | null
+  occurred_at: string
+}
+
+export type LegalHistory = {
+  id: string
+  notice_id: string | null
+  entity_type: string | null
+  entity_id: string | null
+  action: string
+  notice_type: string | null
+  reference_id: string | null
+  snapshot: Record<string, unknown> | null
+  occurred_at: string
 }
 
 // ─── View Types ───────────────────────────────────────────────────────────────

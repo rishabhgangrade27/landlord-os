@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { EditTenantDialog } from './edit-tenant-dialog'
 import { MaskedField } from './masked-field'
+import { EditLeaseDialog } from '@/app/(protected)/leases/edit-lease-dialog'
 
 export default async function TenantDetailPage({
   params,
@@ -180,7 +181,7 @@ export default async function TenantDetailPage({
           <TabsContent value="leases">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold">Lease History</h3>
-              <LinkButton size="sm" href={`/leases/new?tenant_id=${id}`}>Create Lease</LinkButton>
+              <LinkButton size="sm" href={`/leases/new?tenant_id=${id}`}>+ Create Lease</LinkButton>
             </div>
             {!leases?.length ? (
               <p className="text-sm text-muted-foreground">No leases yet.</p>
@@ -191,11 +192,12 @@ export default async function TenantDetailPage({
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b bg-muted/30">
-                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Property</th>
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Unit</th>
                           <th className="text-left px-4 py-2 font-medium text-muted-foreground hidden sm:table-cell">Start</th>
                           <th className="text-left px-4 py-2 font-medium text-muted-foreground hidden sm:table-cell">End</th>
                           <th className="text-left px-4 py-2 font-medium text-muted-foreground">Rent</th>
                           <th className="text-left px-4 py-2 font-medium text-muted-foreground">Status</th>
+                          <th className="px-4 py-2"></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -206,7 +208,7 @@ export default async function TenantDetailPage({
                               <td className="px-4 py-2">
                                 {prop ? (
                                   <Link href={`/properties/${prop.id}`} className="hover:underline text-primary">
-                                    {prop.name ?? prop.address ?? '—'}
+                                    {prop.nickname ?? prop.name ?? prop.address ?? '—'}
                                   </Link>
                                 ) : '—'}
                                 <p className="text-xs text-muted-foreground sm:hidden mt-0.5">
@@ -227,6 +229,19 @@ export default async function TenantDetailPage({
                                 >
                                   {l.status}
                                 </Badge>
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                <EditLeaseDialog
+                                  lease={{
+                                    id: l.id,
+                                    start_date: l.start_date,
+                                    end_date: l.end_date,
+                                    rent_amount: Number(l.rent_amount),
+                                    status: l.status,
+                                    notes: (l as any).notes ?? null,
+                                  }}
+                                  tenantName={tenant.name}
+                                />
                               </td>
                             </tr>
                           )

@@ -5,8 +5,9 @@ import { LinkButton } from '@/components/ui/link-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, User, Calendar } from 'lucide-react'
+import { ArrowLeft, User, Calendar, AlertTriangle } from 'lucide-react'
 import { EditPropertyDialog } from './edit-property-dialog'
+import { EditLeaseDialog } from '@/app/(protected)/leases/edit-lease-dialog'
 
 export default async function PropertyDetailPage({
   params,
@@ -16,13 +17,11 @@ export default async function PropertyDetailPage({
   const { id } = await params
   const supabase = await createClient()
 
-  // In this system, each property row IS a unit — the units table is separate but empty.
-  // We get tenant/lease info directly from leases joined to this property.
   const [{ data: property }, { data: leases }] = await Promise.all([
     supabase.from('properties').select('*').eq('id', id).single(),
     supabase
       .from('leases')
-      .select('id, start_date, end_date, rent_amount, status, tenants(id, name, case_number)')
+      .select('id, start_date, end_date, rent_amount, status, notes, tenants(id, name, case_number)')
       .eq('property_id', id)
       .order('start_date', { ascending: false }),
   ])
@@ -32,16 +31,15 @@ export default async function PropertyDetailPage({
   const activeLease = leases?.find((l) => l.status === 'active') ?? null
   const activeTenant = (activeLease as any)?.tenants ?? null
 
-  function statusVariant(s: string) {
-    if (s === 'active') return 'default'
-    if (s === 'expired') return 'secondary'
-    return 'outline'
-  }
+  // Most recent lease (even if expired) — so we can show last known tenant
+  const mostRecentLease = leases?.[0] ?? null
+  const lastTenant = (mostRecentLease as any)?.tenants ?? null
+  const isExpired = !activeLease && mostRecentLease?.status === 'expired'
 
   return (
     <div>
       <PageHeader
-        title={property.name ?? property.address ?? 'Property Detail'}
+        title={property.nickname ?? property.name ?? property.address ?? 'Property Detail'}
         description={[property.address, property.city, property.state].filter(Boolean).join(', ')}
         action={
           <div className="flex gap-2">
@@ -64,28 +62,36 @@ export default async function PropertyDetailPage({
           </CardHeader>
           <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'Address', value: property.address },
-              { label: 'City', value: property.city },
-              { label: 'State', value: property.state },
-              { label: 'ZIP', value: property.zip },
-              { label: 'Type', value: property.property_type ?? 'Residential' },
-              { label: 'Status', value: property.status ?? '—' },
-              { label: 'Monthly Rent', value: activeLease ? `$${Number(activeLease.rent_amount).toLocaleString()}` : '—' },
+              { label: 'Address',      value: property.address },
+              { label: 'City',         value: property.city },
+              { label: 'State',        value: property.state },
+              { label: 'ZIP',          value: property.zip },
+              { label: 'Type',         value: property.property_type ?? 'Residential' },
+              { label: 'Status',       value: property.status ?? '—' },
+              {
+                label: 'Monthly Rent',
+                value: activeLease
+                  ? `$${Number(activeLease.rent_amount).toLocaleString()}/mo`
+                  : isExpired
+                  ? `$${Number(mostRecentLease!.rent_amount).toLocaleString()}/mo (expired)`
+                  : '—',
+              },
               { label: 'Occupancy', value: activeTenant ? 'Occupied' : 'Vacant' },
             ].map(({ label, value }) => (
               <div key={label}>
                 <p className="text-xs text-muted-foreground">{label}</p>
-                <p className="text-sm font-medium capitalize">{value ?? '—'}</p>
+                <p className="text-sm font-medium">{value ?? '—'}</p>
               </div>
             ))}
           </CardContent>
         </Card>
 
-        {/* Current Tenant */}
-        <Card>
+        {/* Current / Last Tenant */}
+        <Card className={isExpired ? 'border-amber-200 bg-amber-50/30' : ''}>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-              Current Tenant
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+              {activeTenant ? 'Current Tenant' : isExpired ? 'Last Tenant (Lease Expired)' : 'Tenant'}
+              {isExpired && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -94,14 +100,12 @@ export default async function PropertyDetailPage({
                 <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                   <User className="w-4 h-4 text-primary" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <Link href={`/tenants/${activeTenant.id}`} className="font-semibold hover:underline text-primary">
                     {activeTenant.name}
                   </Link>
                   {activeTenant.case_number && (
-                    <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                      Case: {activeTenant.case_number}
-                    </p>
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5">Case: {activeTenant.case_number}</p>
                   )}
                   {activeLease && (
                     <p className="text-xs text-muted-foreground mt-0.5">
@@ -109,9 +113,44 @@ export default async function PropertyDetailPage({
                     </p>
                   )}
                 </div>
+                <Link href={`/ledger?tenant_id=${activeTenant.id}`} className="text-xs text-primary hover:underline whitespace-nowrap">
+                  View Ledger →
+                </Link>
+              </div>
+            ) : isExpired && lastTenant ? (
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                  <User className="w-4 h-4 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <Link href={`/tenants/${lastTenant.id}`} className="font-semibold hover:underline text-amber-700">
+                    {lastTenant.name}
+                  </Link>
+                  {lastTenant.case_number && (
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5">Case: {lastTenant.case_number}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Last lease ended: <strong>{mostRecentLease!.end_date ?? 'unknown'}</strong>
+                  </p>
+                  <p className="text-xs text-amber-600 font-medium mt-1">
+                    ⚠ Lease expired — create a new lease to mark this unit as occupied
+                  </p>
+                </div>
+                <LinkButton
+                  size="sm"
+                  href={`/leases/new?tenant_id=${lastTenant.id}&property_id=${id}`}
+                  className="whitespace-nowrap"
+                >
+                  Renew Lease
+                </LinkButton>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No active tenant. Unit is vacant.</p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">No tenant on record. Unit is vacant.</p>
+                <LinkButton size="sm" href={`/leases/new?property_id=${id}`}>
+                  + Add Tenant
+                </LinkButton>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -120,7 +159,8 @@ export default async function PropertyDetailPage({
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold">Lease History</h2>
-            <LinkButton size="sm" href="/leases/new">
+            {/* Pre-fill property_id in new lease form */}
+            <LinkButton size="sm" href={`/leases/new?property_id=${id}`}>
               + New Lease
             </LinkButton>
           </div>
@@ -129,7 +169,10 @@ export default async function PropertyDetailPage({
             <Card>
               <CardContent className="py-8 text-center">
                 <Calendar className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No leases on record for this property.</p>
+                <p className="text-sm text-muted-foreground">No leases on record.</p>
+                <LinkButton size="sm" href={`/leases/new?property_id=${id}`} className="mt-3">
+                  Create First Lease
+                </LinkButton>
               </CardContent>
             </Card>
           ) : (
@@ -144,13 +187,14 @@ export default async function PropertyDetailPage({
                         <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">End</th>
                         <th className="text-right px-4 py-2.5 font-medium text-muted-foreground">Rent</th>
                         <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Status</th>
+                        <th className="px-4 py-2.5"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {leases.map((lease) => {
                         const tenant = (lease as any).tenants
                         return (
-                          <tr key={lease.id} className="border-b last:border-0">
+                          <tr key={lease.id} className="border-b last:border-0 hover:bg-muted/10">
                             <td className="px-4 py-2.5">
                               {tenant ? (
                                 <Link href={`/tenants/${tenant.id}`} className="hover:underline text-primary font-medium">
@@ -158,15 +202,35 @@ export default async function PropertyDetailPage({
                                 </Link>
                               ) : '—'}
                             </td>
-                            <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">{lease.start_date}</td>
-                            <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">{lease.end_date ?? 'Ongoing'}</td>
+                            <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">
+                              {lease.start_date}
+                            </td>
+                            <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">
+                              {lease.end_date ?? 'Ongoing'}
+                            </td>
                             <td className="px-4 py-2.5 text-right font-medium">
                               ${Number(lease.rent_amount).toLocaleString()}
                             </td>
                             <td className="px-4 py-2.5">
-                              <Badge variant={statusVariant(lease.status) as any} className="text-xs capitalize">
+                              <Badge
+                                variant={lease.status === 'active' ? 'default' : 'secondary'}
+                                className="text-xs capitalize"
+                              >
                                 {lease.status}
                               </Badge>
+                            </td>
+                            <td className="px-4 py-2.5 text-right">
+                              <EditLeaseDialog
+                                lease={{
+                                  id: lease.id,
+                                  start_date: lease.start_date,
+                                  end_date: lease.end_date,
+                                  rent_amount: Number(lease.rent_amount),
+                                  status: lease.status,
+                                  notes: (lease as any).notes ?? null,
+                                }}
+                                tenantName={tenant?.name}
+                              />
                             </td>
                           </tr>
                         )

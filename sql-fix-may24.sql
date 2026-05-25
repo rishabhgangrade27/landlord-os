@@ -109,7 +109,84 @@ UPDATE tenants SET case_number = '00039123669C-01' WHERE name = 'Marrushka Moris
 
 
 -- ──────────────────────────────────────────────────────────
--- FIX 5: Verify property nicknames are set correctly
+-- FIX 5: Abdullah Ali — create new active lease
+-- His previous lease (rent $2,555) ended April 30, 2026.
+-- This is why property detail shows "Vacant / No active tenant".
+-- Run after deleting the $29,000 wrong lease (Fix 2 above).
+-- ──────────────────────────────────────────────────────────
+
+-- Step 5a: Get IDs
+SELECT id, name FROM tenants WHERE name = 'Abdullah Ali';
+SELECT id, nickname FROM properties WHERE nickname ILIKE '%1R%' OR nickname ILIKE '%1Right%' LIMIT 5;
+
+-- Step 5b: Mark his expired lease as expired (in case it still says active)
+UPDATE leases SET status = 'expired'
+WHERE tenant_id = (SELECT id FROM tenants WHERE name = 'Abdullah Ali')
+  AND status = 'active';
+
+-- Step 5c: Insert new lease (adjust dates/rent as needed)
+-- NOTE: Use /leases/new from the UI instead if you prefer clicking
+INSERT INTO leases (tenant_id, property_id, unit_id, start_date, end_date, rent_amount, status, notes)
+SELECT
+  t.id,
+  p.id,
+  p.id,
+  '2026-05-01',        -- Lease start (back-date to May 1 or whatever Sonu agreed)
+  '2027-04-30',        -- Lease end (1 year)
+  2555,                -- Monthly rent — UPDATE this if rent changed
+  'active',
+  'Renewal — May 2026 to Apr 2027'
+FROM tenants t, properties p
+WHERE t.name = 'Abdullah Ali'
+  AND (p.nickname ILIKE '%1Right%' OR p.nickname ILIKE '%1R%')
+LIMIT 1;
+
+-- Step 5d: Mark property as Occupied
+UPDATE properties SET status = 'Occupied'
+WHERE nickname ILIKE '%1R%' OR nickname ILIKE '%1Right%';
+
+-- Step 5e: Ensure tenant status is active
+UPDATE tenants SET status = 'active' WHERE name = 'Abdullah Ali';
+
+-- Step 5f: Verify
+SELECT l.id, l.start_date, l.end_date, l.rent_amount, l.status, t.name
+FROM leases l JOIN tenants t ON t.id = l.tenant_id
+WHERE t.name = 'Abdullah Ali'
+ORDER BY l.start_date;
+
+
+-- ──────────────────────────────────────────────────────────
+-- FIX 6: Balance diagnostic
+-- ──────────────────────────────────────────────────────────
+-- The balance shown in the ledger = rent due - verified payments.
+-- If NO receipt PDFs have been uploaded and verified yet,
+-- the system will show the FULL rent accumulated since lease start.
+-- Example: Chameka ($2,217/mo since Nov 2021) = ~$119K if no payments recorded.
+-- This is EXPECTED — the balance will correct itself once you upload
+-- the HRA receipt PDFs via the Upload page and n8n processes them.
+
+-- Run this to see what the system currently calculates per tenant:
+SELECT
+  t.name,
+  l.start_date,
+  l.rent_amount,
+  l.status,
+  SUM(vrl.due_amount)     AS total_due,
+  SUM(vrl.paid_amount)    AS total_paid,
+  MAX(vrl.pending_balance) AS current_balance
+FROM tenants t
+JOIN leases l ON l.tenant_id = t.id
+LEFT JOIN view_rent_ledger vrl ON vrl.tenant_id = t.id AND vrl.lease_id = l.id
+WHERE l.status = 'active'
+GROUP BY t.name, l.start_date, l.rent_amount, l.status
+ORDER BY t.name;
+
+-- If paid_amount = 0 for all tenants → receipts not uploaded yet.
+-- Upload PDFs via /upload, wait for n8n to process, then re-check.
+
+
+-- ──────────────────────────────────────────────────────────
+-- FIX 7: Verify property nicknames are set correctly
 -- ──────────────────────────────────────────────────────────
 
 SELECT id, nickname, name, address, city, state, status

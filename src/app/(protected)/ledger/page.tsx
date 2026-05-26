@@ -5,7 +5,7 @@ import { LinkButton } from '@/components/ui/link-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { Building2, ArrowLeft } from 'lucide-react'
-import { LedgerExportButton } from './ledger-export-button'
+import { LedgerExportButton, type LedgerMonthRow } from './ledger-export-button'
 
 // ─── Per-tenant court ledger ──────────────────────────────────────────────────
 async function TenantLedger({ tenantId }: { tenantId: string }) {
@@ -62,7 +62,7 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
     }
   }
 
-  type MonthRow = { month: string; month_label: string; due: number; checks: CheckEntry[]; balance: number }
+  type MonthRow = LedgerMonthRow
 
   const months: MonthRow[] = (rentLedger ?? [])
     .map((row) => {
@@ -92,7 +92,12 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
               <ArrowLeft className="w-4 h-4 mr-1.5" />
               All Units
             </LinkButton>
-            <LedgerExportButton tenantId={tenantId} type="court" />
+            <LedgerExportButton
+                tenantId={tenantId}
+                tenantName={tenant.name}
+                caseNumber={tenant.case_number ?? undefined}
+                months={months}
+              />
           </div>
         }
       />
@@ -184,7 +189,7 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
                       <th className="text-right px-3 py-2.5 font-semibold text-muted-foreground">HRA 3</th>
                       <th className="text-right px-3 py-2.5 font-semibold text-muted-foreground">HRA 4</th>
                       <th className="text-right px-3 py-2.5 font-semibold text-muted-foreground">HRA 5</th>
-                      <th className="text-right px-3 py-2.5 font-semibold text-muted-foreground">Tenant</th>
+                      <th className="text-right px-3 py-2.5 font-semibold text-muted-foreground whitespace-nowrap">Paid By Tenant</th>
                       <th className="text-right px-3 py-2.5 font-semibold text-foreground bg-muted/60">Balance</th>
                       <th className="text-left px-3 py-2.5 font-semibold text-muted-foreground">Comment</th>
                     </tr>

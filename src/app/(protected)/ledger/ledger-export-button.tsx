@@ -97,17 +97,12 @@ export function LedgerExportButton({
     URL.revokeObjectURL(url)
   }
 
-  // ── Print page ────────────────────────────────────────────────────────────
-  const printUrl = `/ledger/print?tenant_id=${tenantId}`
-
   return (
     <div className="flex gap-2">
-      <a href={printUrl} target="_blank" rel="noopener noreferrer">
-        <Button variant="outline" size="sm">
-          <Printer className="w-3.5 h-3.5 mr-1.5" />
-          Print / PDF
-        </Button>
-      </a>
+      <Button variant="outline" size="sm" onClick={() => window.print()}>
+        <Printer className="w-3.5 h-3.5 mr-1.5" />
+        Print / PDF
+      </Button>
 
       <Button variant="outline" size="sm" onClick={handleCsvDownload}>
         <Download className="w-3.5 h-3.5 mr-1.5" />

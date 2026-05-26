@@ -128,3 +128,33 @@
     @apply font-sans;
   }
 }
+
+@media print {
+  /* Force white background and black text everywhere */
+  * {
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+  }
+
+  /* Hide everything except the main ledger content */
+  nav, aside, header,
+  [data-sidebar],
+  [class*="print:hidden"] {
+    display: none !important;
+  }
+
+  /* Keep balance colours visible in print */
+  .text-destructive, [class*="text-red"] {
+    color: #b91c1c !important;
+  }
+  .text-green-700, [class*="text-green"] {
+    color: #15803d !important;
+  }
+
+  /* Prevent page breaks inside rows */
+  tr { page-break-inside: avoid; }
+
+  /* Full width table */
+  table { width: 100% !important; }
+}

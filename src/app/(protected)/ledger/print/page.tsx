@@ -111,7 +111,7 @@ export default async function LedgerPrintPage({
       {/* Print trigger — auto-opens print dialog when page loads */}
       <PrintTrigger />
 
-      <div className="p-8 max-w-[1100px] mx-auto text-[11px] leading-tight">
+      <div className="p-8 max-w-[1100px] mx-auto text-[11px] leading-tight bg-white text-black min-h-screen">
 
         {/* Print / close buttons — hidden when actually printing */}
         <div className="print:hidden flex gap-3 mb-6">

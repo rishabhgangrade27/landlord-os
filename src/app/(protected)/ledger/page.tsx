@@ -50,7 +50,10 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
   const checksByMonth = new Map<string, CheckEntry[]>()
 
   for (const row of courtLedger ?? []) {
-    const key = row.ledger_month ?? ''
+    // Normalize to YYYY-MM-DD — ledger_month comes back as a timestamp string
+    // ("2024-01-01T00:00:00+00:00") while view_rent_ledger.month is a date
+    // ("2024-01-01"). Slice to first 10 chars so they always match.
+    const key = (row.ledger_month ?? '').slice(0, 10)
     if (!key) continue
     if (!checksByMonth.has(key)) checksByMonth.set(key, [])
     if (row.amount !== null && Number(row.amount) > 0) {
@@ -66,7 +69,7 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
 
   const months: MonthRow[] = (rentLedger ?? [])
     .map((row) => {
-      const dateKey = row.month as string
+      const dateKey = (row.month as string).slice(0, 10)
       const d = new Date(dateKey + 'T12:00:00')
       const label = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
       return {

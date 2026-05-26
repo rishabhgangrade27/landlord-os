@@ -55,7 +55,10 @@ export default async function LedgerPrintPage({
   }
   const checksByMonth = new Map<string, CheckEntry[]>()
   for (const row of courtLedger ?? []) {
-    const key = row.ledger_month ?? ''
+    // Normalize to YYYY-MM-DD — ledger_month is a Postgres timestamp
+    // ("2024-01-01T00:00:00+00:00") while view_rent_ledger.month is a date
+    // ("2024-01-01"). Slice to 10 chars so the Map keys always match.
+    const key = (row.ledger_month ?? '').slice(0, 10)
     if (!key) continue
     if (!checksByMonth.has(key)) checksByMonth.set(key, [])
     if (row.amount !== null && Number(row.amount) > 0) {
@@ -77,7 +80,7 @@ export default async function LedgerPrintPage({
 
   const months: MonthRow[] = (rentLedger ?? [])
     .map((row) => {
-      const dateKey = row.month as string
+      const dateKey = (row.month as string).slice(0, 10)
       const d = new Date(dateKey + 'T12:00:00')
       const monthStr = d.toLocaleDateString('en-US', { month: 'short' })
       const yearStr = d.getFullYear().toString()

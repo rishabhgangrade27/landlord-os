@@ -16,7 +16,7 @@ export function VerifyTransactionButton({ transactionId }: { transactionId: stri
     setLoading(true)
     const { error } = await supabase
       .from('transactions')
-      .update({ status: 'verified' })
+      .update({ status: 'verified', verified_at: new Date().toISOString() })
       .eq('id', transactionId)
 
     if (error) {

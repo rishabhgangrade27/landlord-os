@@ -1,5 +1,6 @@
-// Minimal layout for the print/PDF route — no sidebar, no AppShell.
-// Auth is still checked; unauthenticated users get redirected.
+// Layout override for the print/PDF route.
+// Does NOT add html/body (only root layout can do that in Next.js App Router).
+// Sidebar is hidden via print:hidden CSS on AppShell.
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
@@ -15,11 +16,5 @@ export default async function PrintLayout({
 
   if (!user) redirect('/login')
 
-  return (
-    <html lang="en">
-      <body className="bg-white text-black font-sans antialiased">
-        {children}
-      </body>
-    </html>
-  )
+  return <>{children}</>
 }

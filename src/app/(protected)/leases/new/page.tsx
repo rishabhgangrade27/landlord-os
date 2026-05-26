@@ -11,10 +11,11 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, AlertTriangle } from 'lucide-react'
 
 type TenantOption = { id: string; name: string; case_number: string | null; status: string }
 type PropertyOption = { id: string; nickname: string; address: string | null; status: string | null }
+type ActiveLeaseWarning = { tenant_name: string; start_date: string; rent_amount: number }
 
 function NewLeasePageContent() {
   const router = useRouter()
@@ -23,6 +24,7 @@ function NewLeasePageContent() {
   const [loading, setLoading] = useState(false)
   const [tenants, setTenants] = useState<TenantOption[]>([])
   const [properties, setProperties] = useState<PropertyOption[]>([])
+  const [activeLeaseWarning, setActiveLeaseWarning] = useState<ActiveLeaseWarning | null>(null)
 
   const [form, setForm] = useState({
     tenant_id:   searchParams.get('tenant_id')   ?? '',
@@ -50,6 +52,27 @@ function NewLeasePageContent() {
       .order('nickname')
       .then(({ data }) => setProperties((data ?? []) as PropertyOption[]))
   }, [])
+
+  async function checkForActiveLease(propertyId: string) {
+    if (!propertyId) { setActiveLeaseWarning(null); return }
+    const { data } = await supabase
+      .from('leases')
+      .select('tenant_id, start_date, rent_amount, tenants(name)')
+      .eq('property_id', propertyId)
+      .eq('status', 'active')
+      .limit(1)
+      .single()
+    if (data) {
+      const tenantName = (data.tenants as unknown as { name: string } | null)?.name ?? 'Unknown tenant'
+      setActiveLeaseWarning({
+        tenant_name: tenantName,
+        start_date: data.start_date,
+        rent_amount: data.rent_amount,
+      })
+    } else {
+      setActiveLeaseWarning(null)
+    }
+  }
 
   function set(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -140,7 +163,13 @@ function NewLeasePageContent() {
               {/* Property / Unit */}
               <div className="space-y-2">
                 <Label>Property / Unit <span className="text-destructive">*</span></Label>
-                <Select value={form.property_id} onValueChange={(v) => set('property_id', v ?? '')}>
+                <Select
+                  value={form.property_id}
+                  onValueChange={(v) => {
+                    set('property_id', v ?? '')
+                    checkForActiveLease(v ?? '')
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select property" />
                   </SelectTrigger>
@@ -153,6 +182,19 @@ function NewLeasePageContent() {
                     ))}
                   </SelectContent>
                 </Select>
+
+                {activeLeaseWarning && (
+                  <div className="flex items-start gap-2 rounded-md border border-yellow-300 bg-yellow-50 dark:border-yellow-700 dark:bg-yellow-950 px-3 py-2 text-sm text-yellow-800 dark:text-yellow-200">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-yellow-600 dark:text-yellow-400" />
+                    <span>
+                      <strong>Active lease already exists</strong> — {activeLeaseWarning.tenant_name}, $
+                      {activeLeaseWarning.rent_amount.toLocaleString()}/mo, from{' '}
+                      {new Date(activeLeaseWarning.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}.
+                      Creating another will make both show as active. Set the old one to "Expired" first
+                      or change the status below to "Expired" if this is a correction.
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Dates */}

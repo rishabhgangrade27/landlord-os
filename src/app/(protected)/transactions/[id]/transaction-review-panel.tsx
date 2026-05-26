@@ -142,6 +142,7 @@ export function TransactionReviewPanel({
         status:                 'verified',
         reviewed_by:            'admin',
         reviewed_at:            new Date().toISOString(),
+        verified_at:            new Date().toISOString(),
       })
       .eq('id', transaction.id)
 

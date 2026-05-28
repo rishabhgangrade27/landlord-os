@@ -20,11 +20,9 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
     supabase.from('tenants').select('*').eq('id', tenantId).single(),
     supabase
       .from('leases')
-      .select('rent_amount, start_date, end_date, properties(id, name, nickname, address)')
+      .select('rent_amount, start_date, end_date, status, properties(id, name, nickname, address)')
       .eq('tenant_id', tenantId)
-      .eq('status', 'active')
-      .order('start_date', { ascending: false })
-      .limit(1),
+      .order('start_date', { ascending: false }),
     supabase
       .from('view_court_ledger')
       .select('*')
@@ -42,8 +40,10 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
     return <p className="text-sm text-muted-foreground p-6">Tenant not found.</p>
   }
 
-  const activeLease = leaseRows?.[0] ?? null
+  // Most recent active lease for info card; fall back to most recent of any status
+  const activeLease = (leaseRows ?? []).find((l: any) => l.status === 'active') ?? leaseRows?.[0] ?? null
   const property = (activeLease as any)?.properties ?? null
+  const allLeases = leaseRows ?? []
 
   // ── Build monthly pivot ───────────────────────────────────────────────────
   type CheckEntry = { check_number: string | null; amount: number; check_date: string | null }
@@ -164,6 +164,21 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
                     <p className="text-sm">{(tenant as any).notes}</p>
                   </div>
                 )}
+                {allLeases.length > 1 && (
+                  <div className="col-span-2 md:col-span-3">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Lease History ({allLeases.length} leases)</p>
+                    <div className="flex flex-wrap gap-2">
+                      {allLeases.map((l: any, i: number) => (
+                        <span key={i} className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${l.status === 'active' ? 'bg-green-50 border-green-300 text-green-800' : 'bg-muted border-muted-foreground/20 text-muted-foreground'}`}>
+                          <span className="font-mono">${Number(l.rent_amount).toLocaleString()}/mo</span>
+                          <span>·</span>
+                          <span>{l.start_date} – {l.end_date ?? 'ongoing'}</span>
+                          {l.status === 'active' && <span className="font-semibold">✓</span>}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -178,7 +193,7 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
           {!months.length ? (
             <Card>
               <CardContent className="py-10 text-center">
-                <p className="text-sm text-muted-foreground">No ledger data yet. Upload receipts and ensure the lease is active.</p>
+                <p className="text-sm text-muted-foreground">No ledger data yet. Upload HRA receipts to see the monthly breakdown.</p>
               </CardContent>
             </Card>
           ) : (
@@ -290,10 +305,14 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
                 {latestBalance > 0 ? `$${latestBalance.toFixed(2)} OWED` : latestBalance < 0 ? `($${Math.abs(latestBalance).toFixed(2)}) CREDIT` : '$0.00'}
               </td>
             </tr>
-            {activeLease && (
+            {allLeases.length > 0 && (
               <tr>
-                <td style={{ fontWeight: 'bold', paddingRight: '6pt' }}>Lease Period:</td>
-                <td colSpan={3}>{activeLease.start_date} — {activeLease.end_date ?? 'Ongoing'}</td>
+                <td style={{ fontWeight: 'bold', paddingRight: '6pt' }}>Lease Period{allLeases.length > 1 ? 's' : ''}:</td>
+                <td colSpan={3}>
+                  {allLeases.map((l: any, i: number) =>
+                    `${l.start_date} – ${l.end_date ?? 'Ongoing'} ($${Number(l.rent_amount).toLocaleString()}/mo)${i < allLeases.length - 1 ? ' | ' : ''}`
+                  ).join('')}
+                </td>
               </tr>
             )}
           </tbody>

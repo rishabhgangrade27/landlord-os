@@ -158,7 +158,10 @@ export type LegalNotice = {
     | 'non_payment_30day'
     | 'non_payment_60day'
     | 'notice_90day'
+    | 'notice_90day_b84'
+    | 'notice_90day_8607'
     | 'court_form'
+    | 'court_form_nonpayment'
     | string
   reference_id: string | null
   rendered_text: string
@@ -190,6 +193,10 @@ export type LegalTemplate = {
 export type SystemSettings = {
   id: number
   processing_mode: 'immediate' | 'scheduled'
+  attorney_name: string | null
+  attorney_address: string | null
+  attorney_phone: string | null
+  attorney_email: string | null
 }
 
 export type SystemError = {

@@ -17,14 +17,28 @@ export default async function PropertyDetailPage({
   const { id } = await params
   const supabase = await createClient()
 
-  const [{ data: property }, { data: leases }] = await Promise.all([
+  const [{ data: property }, { data: leases }, { data: ledgerRows }] = await Promise.all([
     supabase.from('properties').select('*').eq('id', id).single(),
     supabase
       .from('leases')
       .select('id, start_date, end_date, rent_amount, status, notes, tenants(id, name, case_number)')
       .eq('property_id', id)
       .order('start_date', { ascending: false }),
+    // Latest balance per tenant for this property (ordered desc so first row = latest month)
+    supabase
+      .from('view_rent_ledger')
+      .select('tenant_id, pending_balance')
+      .eq('property_id', id)
+      .order('month', { ascending: false }),
   ])
+
+  // Build a map: tenant_id → latest pending_balance
+  const balanceByTenant = new Map<string, number>()
+  for (const row of ledgerRows ?? []) {
+    if (row.tenant_id && !balanceByTenant.has(row.tenant_id)) {
+      balanceByTenant.set(row.tenant_id, Number(row.pending_balance ?? 0))
+    }
+  }
 
   if (!property) notFound()
 
@@ -112,6 +126,19 @@ export default async function PropertyDetailPage({
                       Lease: {activeLease.start_date} → {activeLease.end_date ?? 'Ongoing'}
                     </p>
                   )}
+                  {(() => {
+                    const bal = balanceByTenant.get(activeTenant.id)
+                    if (bal === undefined || bal === 0) return null
+                    return bal > 0 ? (
+                      <p className="text-xs font-semibold text-red-600 mt-1">
+                        Balance owed: ${bal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </p>
+                    ) : (
+                      <p className="text-xs font-semibold text-green-600 mt-1">
+                        Credit: ${Math.abs(bal).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </p>
+                    )
+                  })()}
                 </div>
                 <Link href={`/ledger?tenant_id=${activeTenant.id}`} className="text-xs text-primary hover:underline whitespace-nowrap">
                   View Ledger →

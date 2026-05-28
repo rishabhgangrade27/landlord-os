@@ -24,9 +24,8 @@ export default async function LedgerPrintPage({
     supabase.from('tenants').select('*').eq('id', tenant_id).single(),
     supabase
       .from('leases')
-      .select('rent_amount, start_date, end_date, properties(id, name, nickname, address)')
+      .select('rent_amount, start_date, end_date, status, properties(id, name, nickname, address)')
       .eq('tenant_id', tenant_id)
-      .eq('status', 'active')
       .order('start_date', { ascending: false })
       .limit(1),
     supabase
@@ -101,6 +100,8 @@ export default async function LedgerPrintPage({
   const totalsByCol = [0, 1, 2, 3, 4].map((i) =>
     months.reduce((s, m) => s + (m.checks[i]?.amount ?? 0), 0)
   )
+  const fmtChk = (n: number) =>
+    n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const latestBalance = months.at(-1)?.balance ?? 0
   const printDate = new Date().toLocaleDateString('en-US', {
     month: 'long', day: 'numeric', year: 'numeric',
@@ -189,26 +190,25 @@ export default async function LedgerPrintPage({
               <tr>
                 <th colSpan={3} className="border border-black bg-white" />
                 <th
-                  colSpan={7}
+                  colSpan={6}
                   className="border border-black text-center py-1 font-bold bg-neutral-100 tracking-wide"
                 >
                   HRA
                 </th>
-                <th colSpan={3} className="border border-black bg-neutral-100 text-center py-1 font-bold">
+                <th colSpan={2} className="border border-black bg-neutral-100 text-center py-1 font-bold">
                   Balance
                 </th>
               </tr>
-              {/* Row 2 — column names */}
+              {/* Row 2 — column names (check # shown inside each HRA cell, no separate column) */}
               <tr className="bg-neutral-50">
                 <th className="border border-black px-2 py-1 text-left font-semibold">Month</th>
                 <th className="border border-black px-2 py-1 text-left font-semibold">Year</th>
                 <th className="border border-black px-2 py-1 text-right font-semibold">Due</th>
-                <th className="border border-black px-2 py-1 text-right font-semibold">Check 1</th>
-                <th className="border border-black px-2 py-1 text-center font-semibold">Check #</th>
-                <th className="border border-black px-2 py-1 text-right font-semibold">Check 2</th>
-                <th className="border border-black px-2 py-1 text-right font-semibold">Check 3</th>
-                <th className="border border-black px-2 py-1 text-right font-semibold">Check 4</th>
-                <th className="border border-black px-2 py-1 text-right font-semibold">Check 5</th>
+                <th className="border border-black px-2 py-1 text-right font-semibold">HRA 1</th>
+                <th className="border border-black px-2 py-1 text-right font-semibold">HRA 2</th>
+                <th className="border border-black px-2 py-1 text-right font-semibold">HRA 3</th>
+                <th className="border border-black px-2 py-1 text-right font-semibold">HRA 4</th>
+                <th className="border border-black px-2 py-1 text-right font-semibold">HRA 5</th>
                 <th className="border border-black px-2 py-1 text-right font-semibold whitespace-nowrap">
                   Paid By Tenant
                 </th>
@@ -224,11 +224,6 @@ export default async function LedgerPrintPage({
                 const bal = m.balance
                 const checks = m.checks.slice(0, 5)
                 const totalReceived = checks.reduce((s, c) => s + c.amount, 0)
-                // Check # column: all check numbers for this month, comma-separated
-                const allCheckNums = checks
-                  .map((c) => c.check_number)
-                  .filter(Boolean)
-                  .join(', ')
 
                 return (
                   <tr
@@ -238,24 +233,21 @@ export default async function LedgerPrintPage({
                     <td className="border border-black px-2 py-1">{monthStr}</td>
                     <td className="border border-black px-2 py-1">{yearStr}</td>
                     <td className="border border-black px-2 py-1 text-right">{fmt(m.due)}</td>
-                    <td className="border border-black px-2 py-1 text-right">
-                      {checks[0] ? fmt(checks[0].amount) : ''}
-                    </td>
-                    <td className="border border-black px-2 py-1 text-center font-mono text-[9px]">
-                      {allCheckNums}
-                    </td>
-                    <td className="border border-black px-2 py-1 text-right">
-                      {checks[1] ? fmt(checks[1].amount) : ''}
-                    </td>
-                    <td className="border border-black px-2 py-1 text-right">
-                      {checks[2] ? fmt(checks[2].amount) : ''}
-                    </td>
-                    <td className="border border-black px-2 py-1 text-right">
-                      {checks[3] ? fmt(checks[3].amount) : ''}
-                    </td>
-                    <td className="border border-black px-2 py-1 text-right">
-                      {checks[4] ? fmt(checks[4].amount) : ''}
-                    </td>
+                    {/* Each HRA cell: amount on top, check # below in same cell */}
+                    {[0, 1, 2, 3, 4].map((i) => (
+                      <td key={i} className="border border-black px-2 py-1 text-right">
+                        {checks[i] ? (
+                          <div>
+                            <div>{fmtChk(checks[i].amount)}</div>
+                            {checks[i].check_number && (
+                              <div className="font-mono text-[8px] text-neutral-500">
+                                #{checks[i].check_number}
+                              </div>
+                            )}
+                          </div>
+                        ) : ''}
+                      </td>
+                    ))}
                     {/* Paid By Tenant — not yet tracked; placeholder */}
                     <td className="border border-black px-2 py-1 text-right" />
                     <td
@@ -282,11 +274,7 @@ export default async function LedgerPrintPage({
                   TOTAL
                 </td>
                 <td className="border border-black px-2 py-1.5 text-right">{fmt(totalDue)}</td>
-                <td className="border border-black px-2 py-1.5 text-right">
-                  {fmt(totalsByCol[0])}
-                </td>
-                <td className="border border-black px-2 py-1.5" />
-                {[1, 2, 3, 4].map((i) => (
+                {[0, 1, 2, 3, 4].map((i) => (
                   <td key={i} className="border border-black px-2 py-1.5 text-right">
                     {fmt(totalsByCol[i])}
                   </td>

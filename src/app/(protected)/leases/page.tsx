@@ -4,8 +4,14 @@ import { Badge } from '@/components/ui/badge'
 import { LinkButton } from '@/components/ui/link-button'
 import { Card, CardContent } from '@/components/ui/card'
 import Link from 'next/link'
-import { Plus } from 'lucide-react'
+import { Plus, AlertTriangle } from 'lucide-react'
 import { EditLeaseDialog } from './edit-lease-dialog'
+
+// Returns true if end_date has passed (DB may still say 'active' — data entry lag)
+function isDateExpired(endDate: string | null): boolean {
+  if (!endDate) return false
+  return endDate < new Date().toISOString().slice(0, 10)
+}
 
 export default async function LeasesPage() {
   const supabase = await createClient()
@@ -78,12 +84,27 @@ export default async function LeasesPage() {
                             ${Number(lease.rent_amount).toLocaleString()}
                           </td>
                           <td className="px-4 py-3">
-                            <Badge
-                              variant={lease.status === 'active' ? 'default' : 'secondary'}
-                              className="text-xs capitalize"
-                            >
-                              {lease.status}
-                            </Badge>
+                            {(() => {
+                              const expired = isDateExpired(lease.end_date)
+                              const dbActive = lease.status === 'active'
+                              // Mismatch: DB says active but dates show expired
+                              const mismatch = dbActive && expired
+                              return (
+                                <div className="flex items-center gap-1.5">
+                                  <Badge
+                                    variant={dbActive && !expired ? 'default' : 'secondary'}
+                                    className="text-xs capitalize"
+                                  >
+                                    {expired ? 'expired' : lease.status}
+                                  </Badge>
+                                  {mismatch && (
+                                    <span title="DB status still says 'active' — update lease status">
+                                      <AlertTriangle className="w-3 h-3 text-orange-500" />
+                                    </span>
+                                  )}
+                                </div>
+                              )
+                            })()}
                           </td>
                           <td className="px-4 py-3 text-right">
                             <EditLeaseDialog

@@ -16,10 +16,13 @@ const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 
 }
 
 const NOTICE_LABELS: Record<string, string> = {
-  non_payment_30day: '30-Day Notice',
-  non_payment_60day: '60-Day Notice',
-  notice_90day: '90-Day Notice',
-  court_form: 'Court Filing',
+  non_payment_30day:     '30-Day Demand',
+  non_payment_60day:     '14-Day Cure Notice',
+  notice_90day:          '90-Day Notice',
+  notice_90day_b84:      '90-Day Notice (B84)',
+  notice_90day_8607:     '90-Day Notice (8607)',
+  court_form:            'Court — Holdover',
+  court_form_nonpayment: 'Court — Non-Payment',
 }
 
 const TABS = [

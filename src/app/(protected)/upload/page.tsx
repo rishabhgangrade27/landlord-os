@@ -76,6 +76,15 @@ export default function UploadPage() {
         )
         toast.error(`Failed: ${file.name} — ${error.message}`)
       } else {
+        // Create placeholder row so n8n cron can pick this file up for OCR processing
+        const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/receipts/${path}`
+        await supabase.from('transactions').insert({
+          status: 'uploaded',
+          source_pdf_url: publicUrl,
+          file_bucket: 'receipts',
+          file_path: path,
+          created_by: 'system',
+        })
         setFiles((prev) =>
           prev.map((f, idx) =>
             idx === i ? { ...f, status: 'done', progress: 100, path } : f

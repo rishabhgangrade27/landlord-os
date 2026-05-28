@@ -21,14 +21,15 @@ import { toast } from 'sonner'
 import { ArrowLeft, AlertTriangle } from 'lucide-react'
 
 const NOTICE_TYPES = [
-  { value: 'non_payment_30day', label: '30-Day Late Rent Notice' },
-  { value: 'non_payment_60day', label: '60-Day Late Rent Notice' },
-  { value: 'notice_90day', label: '90-Day Legal Notice' },
-  { value: 'court_form', label: 'Court Filing Summary' },
+  { value: 'non_payment_30day',   label: '30-Day Rent Demand Letter (to HRA)' },
+  { value: 'non_payment_60day',   label: '14-Day Notice of Cure/Quit' },
+  { value: 'notice_90day',        label: '90-Day Termination Notice (auto-detects property)' },
+  { value: 'court_form',          label: 'Court — Holdover Petition' },
+  { value: 'court_form_nonpayment', label: 'Court — Non-Payment Petition' },
 ]
 
 type TenantOption = { id: string; name: string; case_number: string | null }
-type PreviewMeta = { template_title: string; tenant_name: string; unit_display: string | null }
+type PreviewMeta = { template_title: string; tenant_name: string; unit_display: string | null; resolved_type: string | null }
 
 function GenerateNoticeContent() {
   const router = useRouter()
@@ -75,6 +76,7 @@ function GenerateNoticeContent() {
         template_title: data.template_title,
         tenant_name: data.tenant_name,
         unit_display: data.unit_display,
+        resolved_type: data.resolved_type ?? null,
       })
       setStep('preview')
     } finally {
@@ -187,6 +189,11 @@ function GenerateNoticeContent() {
                   {previewMeta.tenant_name}
                   {previewMeta.unit_display ? ` · ${previewMeta.unit_display}` : ''}
                 </p>
+                {previewMeta.resolved_type && (
+                  <p className="text-xs text-blue-600 mt-0.5">
+                    ↳ Property-specific variant: {previewMeta.resolved_type}
+                  </p>
+                )}
               </div>
               <Badge variant="outline">Preview — not saved yet</Badge>
             </div>

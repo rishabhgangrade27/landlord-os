@@ -10,10 +10,13 @@ import { SendToAttorneyButton } from './send-attorney-button'
 import { UpdateNoticeStatusDialog } from './update-status-dialog'
 
 const NOTICE_LABELS: Record<string, string> = {
-  non_payment_30day: '30-Day Late Rent Notice',
-  non_payment_60day: '60-Day Late Rent Notice',
-  notice_90day: '90-Day Legal Notice',
-  court_form: 'Court Filing Summary',
+  non_payment_30day:     '30-Day Rent Demand Letter (HRA)',
+  non_payment_60day:     '14-Day Notice of Cure/Quit',
+  notice_90day:          '90-Day Termination Notice',
+  notice_90day_b84:      '90-Day Termination Notice (B84 — Beach 84th St)',
+  notice_90day_8607:     '90-Day Termination Notice (8607 — 101st St)',
+  court_form:            'Court — Holdover Petition',
+  court_form_nonpayment: 'Court — Non-Payment Petition',
 }
 
 export default async function LegalNoticeDetailPage({

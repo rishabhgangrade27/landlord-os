@@ -104,20 +104,21 @@ export async function POST(request: Request) {
 
   if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
 
-  // ── Unit + Property ─────────────────────────────────────────────────────────
-  let unit: any = null
+  // ── Property (from most recent lease — no separate units table) ─────────────
   let property: any = null
+  let propertyId: string | null = null
 
-  if (tenant.unit_id) {
-    const { data: unitData } = await supabase
-      .from('units')
-      .select('id, unit_number, property_id, properties(id, name, address, city_state_zip)')
-      .eq('id', tenant.unit_id)
-      .single()
-    if (unitData) {
-      unit = unitData
-      property = (unitData as any).properties
-    }
+  const { data: propRow } = await supabase
+    .from('leases')
+    .select('property_id, properties(id, name, address, nickname, city_state_zip)')
+    .eq('tenant_id', tenant_id)
+    .order('start_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (propRow) {
+    property = (propRow as any).properties ?? null
+    propertyId = (propRow as any).property_id ?? null
   }
 
   // ── Resolve property-variant template type ───────────────────────────────────
@@ -207,8 +208,13 @@ export async function POST(request: Request) {
   const vacateByDate = vacateDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
   // ── Build template data ───────────────────────────────────────────────────────
+  // Extract unit label from property nickname (e.g. "8607 101st - Unit 2R" → "2R")
+  const unitLabel = property?.nickname
+    ? (property.nickname.match(/[Uu]nit\s*(.+)$/)?.[1]?.trim() ?? property.nickname)
+    : '—'
+
   const propertyLine = property
-    ? `${property.name ?? property.address ?? ''}, Unit ${unit?.unit_number ?? ''}, ${property.city_state_zip ?? 'New York'}`
+    ? `${property.address ?? property.name ?? ''}, ${property.city_state_zip ?? 'New York'}`
     : (tenant.address ?? '')
 
   // Use cumulative balance from ledger (most recent month's running total).
@@ -232,7 +238,7 @@ export async function POST(request: Request) {
     tenant_address:       tenant.address ?? propertyLine,
     // Property / unit
     property_address:     property?.address ?? tenant.address ?? '—',
-    unit_number:          unit?.unit_number ?? '—',
+    unit_number:          unitLabel,
     unit_address:         propertyLine,
     // Lease
     monthly_rent:         lease ? `$${Number(lease.rent_amount).toFixed(2)}` : '—',
@@ -268,8 +274,8 @@ export async function POST(request: Request) {
       rendered_text:  renderedText,
       template_title: template.title,
       tenant_name:    tenant.name,
-      unit_display:   unit
-        ? `${property?.name ?? property?.address ?? '?'} / ${unit.unit_number}`
+      unit_display:   property
+        ? `${property.nickname ?? property.name ?? property.address ?? '?'}`
         : null,
       // Show which variant was resolved (helps admin confirm)
       resolved_type: effectiveNoticeType !== notice_type ? effectiveNoticeType : null,
@@ -284,8 +290,8 @@ export async function POST(request: Request) {
     .insert({
       tenant_id,
       lease_id:     lease?.id ?? null,
-      unit_id:      unit?.id ?? null,
-      property_id:  unit?.property_id ?? null,
+      unit_id:      null,
+      property_id:  propertyId ?? null,
       notice_type:  effectiveNoticeType,
       reference_id: referenceId,
       rendered_text: renderedText,

@@ -5,7 +5,7 @@ import { LinkButton } from '@/components/ui/link-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Printer } from 'lucide-react'
 import { SendToAttorneyButton } from './send-attorney-button'
 import { UpdateNoticeStatusDialog } from './update-status-dialog'
 
@@ -32,7 +32,7 @@ export default async function LegalNoticeDetailPage({
     .select(`
       *,
       tenants(id, name, full_legal_name, case_number),
-      units(unit_number, properties(name, address)),
+      properties(id, name, address, nickname),
       leases(start_date, end_date, rent_amount)
     `)
     .eq('id', id)
@@ -41,7 +41,7 @@ export default async function LegalNoticeDetailPage({
   if (!notice) notFound()
 
   const tenant = (notice as any).tenants
-  const unit = (notice as any).units
+  const property = (notice as any).properties
   const lease = (notice as any).leases
 
   return (
@@ -125,11 +125,11 @@ export default async function LegalNoticeDetailPage({
                   </div>
                 </>
               )}
-              {unit && (
+              {property && (
                 <div>
-                  <p className="text-xs text-muted-foreground">Unit</p>
+                  <p className="text-xs text-muted-foreground">Property / Unit</p>
                   <p className="text-sm font-medium">
-                    {unit.properties?.name ?? unit.properties?.address ?? '?'} / {unit.unit_number}
+                    {property.nickname ?? property.name ?? property.address ?? '—'}
                   </p>
                 </div>
               )}
@@ -156,11 +156,26 @@ export default async function LegalNoticeDetailPage({
         </Card>
 
         {/* Actions */}
-        {(notice.status === 'generated' || notice.status === 'draft') && (
-          <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap print:hidden">
+          {(notice.status === 'generated' || notice.status === 'draft') && (
             <SendToAttorneyButton noticeId={id} currentStatus={notice.status ?? ''} />
-          </div>
-        )}
+          )}
+          <button
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-md hover:bg-muted/30"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            Print / Save PDF
+          </button>
+        </div>
+
+        {/* Print styles — hides nav/header, shows only notice text */}
+        <style>{`
+          @media print {
+            nav, header, [data-sidebar], .print\\:hidden { display: none !important; }
+            body { background: white !important; }
+          }
+        `}</style>
       </div>
     </div>
   )

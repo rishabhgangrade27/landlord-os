@@ -18,7 +18,7 @@ export default async function TenantsPage() {
   // Get active lease + property info per tenant separately
   const { data: activeLeases } = await supabase
     .from('leases')
-    .select('tenant_id, property_id, properties(id, name, address)')
+    .select('tenant_id, property_id, properties(id, name, address, nickname)')
     .eq('status', 'active')
 
   const leaseLookup = new Map<string, any>()
@@ -67,9 +67,17 @@ export default async function TenantsPage() {
                   <tbody>
                     {tenants.map((t) => {
                       const property = leaseLookup.get(t.id)
+                      const unitLabel = property?.nickname
+                        ?? property?.name
+                        ?? null
                       return (
                         <tr key={t.id} className="border-b last:border-0 hover:bg-muted/20">
                           <td className="px-4 py-3">
+                            {unitLabel && (
+                              <p className="text-[11px] font-semibold text-muted-foreground mb-0.5 uppercase tracking-wide">
+                                {unitLabel}
+                              </p>
+                            )}
                             <Link href={`/tenants/${t.id}`} className="font-medium hover:underline text-primary">
                               {t.name}
                             </Link>
@@ -79,7 +87,7 @@ export default async function TenantsPage() {
                           </td>
                           <td className="px-4 py-3 font-mono text-xs">{t.case_number ?? '—'}</td>
                           <td className="px-4 py-3 text-muted-foreground text-xs hidden md:table-cell">
-                            {property ? (property.name ?? property.address) : '—'}
+                            {property ? (property.address ?? property.name) : '—'}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
                             {t.phone ?? t.email ?? '—'}

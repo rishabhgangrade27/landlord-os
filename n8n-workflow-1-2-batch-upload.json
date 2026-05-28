@@ -398,7 +398,7 @@
             {
               "id": "f383acd7-c64c-49e7-99c3-a60ee7d33696",
               "leftValue": "={{ $json.processing_mode }}",
-              "rightValue": "Immediate",
+              "rightValue": "immediate",
               "operator": {
                 "type": "string",
                 "operation": "equals"

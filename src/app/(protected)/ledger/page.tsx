@@ -67,7 +67,7 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
 
   type MonthRow = LedgerMonthRow
 
-  const months: MonthRow[] = (rentLedger ?? [])
+  const leaseMonths: MonthRow[] = (rentLedger ?? [])
     .map((row) => {
       const dateKey = (row.month as string).slice(0, 10)
       const d = new Date(dateKey + 'T12:00:00')
@@ -80,7 +80,30 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
         balance: Number(row.pending_balance ?? 0),
       }
     })
-    .sort((a, b) => a.month.localeCompare(b.month))
+
+  // Generate "Vacant" placeholder rows for gaps between consecutive leases
+  const sortedLeases = [...(leaseRows ?? [])]
+    .filter((l) => l.start_date && l.end_date)
+    .sort((a, b) => a.start_date.localeCompare(b.start_date))
+
+  const vacantMonths: (MonthRow & { isVacant: true })[] = []
+  for (let i = 0; i < sortedLeases.length - 1; i++) {
+    const gapStart = new Date(sortedLeases[i].end_date! + 'T00:00:00')
+    const gapEnd   = new Date(sortedLeases[i + 1].start_date + 'T00:00:00')
+    gapStart.setDate(1)
+    gapStart.setMonth(gapStart.getMonth() + 1)
+    while (gapStart < gapEnd) {
+      const dateKey = gapStart.toISOString().slice(0, 10)
+      const label = gapStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+      vacantMonths.push({ month: dateKey, month_label: label, due: 0, checks: [], balance: 0, isVacant: true })
+      gapStart.setMonth(gapStart.getMonth() + 1)
+    }
+  }
+
+  const months: (MonthRow & { isVacant?: boolean })[] = [
+    ...leaseMonths,
+    ...vacantMonths,
+  ].sort((a, b) => a.month.localeCompare(b.month))
 
   const latestBalance = months.at(-1)?.balance ?? 0
   const totalDue     = months.reduce((s, m) => s + m.due, 0)
@@ -96,7 +119,8 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
     const checks       = m.checks.slice(0, 5)
     const totalReceived = checks.reduce((s, c) => s + c.amount, 0)
     const allCheckNums  = checks.map((c) => c.check_number).filter(Boolean).join(', ')
-    return { m, monthStr, yearStr, bal, checks, totalReceived, allCheckNums }
+    const isVacant      = !!(m as any).isVacant
+    return { m, monthStr, yearStr, bal, checks, totalReceived, allCheckNums, isVacant }
   })
 
   return (
@@ -222,7 +246,16 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
                       </tr>
                     </thead>
                     <tbody>
-                      {tableRows.map(({ m, monthStr, yearStr, bal, checks, totalReceived }) => (
+                      {tableRows.map(({ m, monthStr, yearStr, bal, checks, totalReceived, isVacant }) => (
+                        isVacant ? (
+                          <tr key={m.month} className="border-b last:border-0 bg-neutral-50/60">
+                            <td className="px-3 py-1.5 text-muted-foreground/60 text-[11px]">{monthStr}</td>
+                            <td className="px-3 py-1.5 text-muted-foreground/60 text-[11px]">{yearStr}</td>
+                            <td colSpan={9} className="px-3 py-1.5 text-[11px] text-muted-foreground/50 italic">
+                              — Vacant —
+                            </td>
+                          </tr>
+                        ) : (
                         <tr key={m.month} className={`border-b last:border-0 ${bal > 500 ? 'bg-red-50/40' : bal < -50 ? 'bg-green-50/30' : ''}`}>
                           <td className="px-3 py-2 font-medium">{monthStr}</td>
                           <td className="px-3 py-2 text-muted-foreground">{yearStr}</td>
@@ -248,6 +281,7 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
                             {totalReceived === 0 && m.due > 0 ? <span className="text-orange-500 font-medium">No payment</span> : null}
                           </td>
                         </tr>
+                        )
                       ))}
                     </tbody>
                     <tfoot>
@@ -342,7 +376,16 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
             </tr>
           </thead>
           <tbody>
-            {tableRows.map(({ m, monthStr, yearStr, bal, checks, totalReceived, allCheckNums }, idx) => (
+            {tableRows.map(({ m, monthStr, yearStr, bal, checks, totalReceived, allCheckNums, isVacant }, idx) => (
+              isVacant ? (
+                <tr key={m.month} style={{ background: '#f5f5f5', pageBreakInside: 'avoid' }}>
+                  <td style={{ border: '1px solid #000', padding: '2pt 4pt', color: '#888', fontSize: '7.5pt' }}>{monthStr}</td>
+                  <td style={{ border: '1px solid #000', padding: '2pt 4pt', color: '#888', fontSize: '7.5pt' }}>{yearStr}</td>
+                  <td colSpan={10} style={{ border: '1px solid #000', padding: '2pt 4pt', color: '#888', fontStyle: 'italic', fontSize: '7.5pt' }}>
+                    — Vacant —
+                  </td>
+                </tr>
+              ) : (
               <tr key={m.month} style={{ background: idx % 2 === 0 ? '#fff' : '#fafafa', pageBreakInside: 'avoid' }}>
                 <td style={{ border: '1px solid #000', padding: '2pt 4pt' }}>{monthStr}</td>
                 <td style={{ border: '1px solid #000', padding: '2pt 4pt' }}>{yearStr}</td>
@@ -361,6 +404,7 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
                   {totalReceived === 0 && m.due > 0 ? 'No payment received' : ''}
                 </td>
               </tr>
+              )
             ))}
           </tbody>
           <tfoot>
@@ -381,11 +425,6 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
           </tfoot>
         </table>
 
-        {/* Footer */}
-        <div style={{ marginTop: '14pt', fontSize: '7.5pt', color: '#444', borderTop: '1px solid #ccc', paddingTop: '6pt' }}>
-          <p>This document is system-generated by LandlordOS for administrative reference only. It does not constitute legal advice.</p>
-          <p style={{ marginTop: '3pt' }}>Printed: {printDate} &nbsp;·&nbsp; Case: {tenant.case_number ?? '—'} &nbsp;·&nbsp; Tenant: {tenant.name}</p>
-        </div>
       </div>
     </>
   )

@@ -5,7 +5,7 @@ import { LinkButton } from '@/components/ui/link-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Printer } from 'lucide-react'
+import { ArrowLeft, Printer, Download } from 'lucide-react'
 import { SendToAttorneyButton } from './send-attorney-button'
 import { UpdateNoticeStatusDialog } from './update-status-dialog'
 
@@ -39,6 +39,15 @@ export default async function LegalNoticeDetailPage({
     .single()
 
   if (!notice) notFound()
+
+  const { data: pdfJob } = await supabase
+    .from('pdf_jobs')
+    .select('id, status, pdf_url, requested_at')
+    .eq('job_type', 'notice')
+    .eq('reference_id', id)
+    .order('requested_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
   const tenant = (notice as any).tenants
   const property = (notice as any).properties
@@ -160,6 +169,17 @@ export default async function LegalNoticeDetailPage({
           {(notice.status === 'generated' || notice.status === 'draft') && (
             <SendToAttorneyButton noticeId={id} currentStatus={notice.status ?? ''} />
           )}
+          {pdfJob?.status === 'done' && pdfJob.pdf_url ? (
+            <a href={pdfJob.pdf_url} target="_blank" rel="noreferrer"
+               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-md hover:bg-muted/30">
+              <Download className="w-3.5 h-3.5" />
+              Download PDF
+            </a>
+          ) : pdfJob?.status === 'pending' || pdfJob?.status === 'processing' ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground border border-dashed rounded-md">
+              PDF queued — run WF5 in n8n
+            </span>
+          ) : null}
           <button
             onClick={() => window.print()}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-md hover:bg-muted/30"

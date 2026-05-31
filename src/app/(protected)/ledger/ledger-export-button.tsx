@@ -1,6 +1,7 @@
 'use client'
 
-import { Printer, Download, FileSpreadsheet } from 'lucide-react'
+import React from 'react'
+import { Printer, Download, FileSpreadsheet, FilePlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export type LedgerCheckEntry = {
@@ -22,6 +23,7 @@ interface LedgerExportButtonProps {
   tenantName?: string
   caseNumber?: string
   months?: LedgerMonthRow[]
+  latestCourtPdfUrl?: string
 }
 
 export function LedgerExportButton({
@@ -29,6 +31,7 @@ export function LedgerExportButton({
   tenantName,
   caseNumber,
   months = [],
+  latestCourtPdfUrl,
 }: LedgerExportButtonProps) {
 
   // ── Excel export (HTML table → .xls — opens natively in Excel, zero dependencies) ──
@@ -179,6 +182,23 @@ export function LedgerExportButton({
     URL.revokeObjectURL(url)
   }
 
+  const [queueStatus, setQueueStatus] = React.useState<'idle' | 'loading' | 'queued' | 'error'>('idle')
+
+  const handleQueueCourtPdf = async () => {
+    setQueueStatus('loading')
+    try {
+      const res = await fetch('/api/queue-court-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: tenantId }),
+      })
+      if (!res.ok) throw new Error('Failed')
+      setQueueStatus('queued')
+    } catch {
+      setQueueStatus('error')
+    }
+  }
+
   return (
     <div className="flex gap-2">
       <Button variant="outline" size="sm" onClick={() => window.print()}>
@@ -195,6 +215,21 @@ export function LedgerExportButton({
         <FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" />
         Export Excel
       </Button>
+
+      {latestCourtPdfUrl ? (
+        <a href={latestCourtPdfUrl} target="_blank" rel="noreferrer">
+          <Button variant="default" size="sm">
+            <Download className="w-3.5 h-3.5 mr-1.5" />
+            Download Court PDF
+          </Button>
+        </a>
+      ) : (
+        <Button variant="outline" size="sm" onClick={handleQueueCourtPdf}
+          disabled={queueStatus === 'loading' || queueStatus === 'queued'}>
+          <FilePlus className="w-3.5 h-3.5 mr-1.5" />
+          {queueStatus === 'loading' ? 'Queuing...' : queueStatus === 'queued' ? 'PDF Queued ✓' : queueStatus === 'error' ? 'Queue Failed' : 'Queue Court PDF'}
+        </Button>
+      )}
     </div>
   )
 }

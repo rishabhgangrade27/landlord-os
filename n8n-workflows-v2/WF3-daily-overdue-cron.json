@@ -1,0 +1,257 @@
+{
+  "name": "WF3 — Daily Overdue Cron (v2) — LandlordOS",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-1792, 0],
+      "id": "schedule-trigger",
+      "name": "Every Day 8 AM"
+    },
+    {
+      "parameters": {
+        "url": "=https://izuxwhpycupbznnaosar.supabase.co/rest/v1/view_rent_ledger?or=(flag_30_day.eq.true,flag_60_day.eq.true)&select=tenant_id,tenant_name,unit_number,pending_balance,flag_30_day,flag_60_day,property_id",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [-1568, 0],
+      "id": "fetch-flagged",
+      "name": "Fetch Flagged Tenants (REST API)",
+      "_readme": "Uses REST API directly instead of Supabase node because n8n Supabase node does not support PostgREST 'or' filter syntax. Env var SUPABASE_SERVICE_ROLE_KEY must be set in n8n env."
+    },
+    {
+      "parameters": {
+        "jsCode": "// HTTP response is an array — spread into individual items\nconst rows = $input.first().json;\nif (!Array.isArray(rows) || rows.length === 0) return [];\n// Dedup by tenant_id — pick the most severe flag (60-day wins)\nconst seen = {};\nfor (const row of rows) {\n  if (!seen[row.tenant_id] || row.flag_60_day) {\n    seen[row.tenant_id] = row;\n  }\n}\nreturn Object.values(seen).map(r => ({ json: r }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1344, 0],
+      "id": "dedup-tenants",
+      "name": "Dedup by Tenant (worst flag wins)"
+    },
+    {
+      "parameters": {
+        "batchSize": 10,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [-1120, 0],
+      "id": "loop",
+      "name": "Loop — Split In Batches"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "legal_notices",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "tenant_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.tenant_id }}"
+            },
+            {
+              "keyName": "status",
+              "condition": "ne",
+              "keyValue": "cancelled"
+            },
+            {
+              "keyName": "created_at",
+              "condition": "gte",
+              "keyValue": "={{ DateTime.local().startOf('month').toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [-896, 0],
+      "id": "check-existing",
+      "name": "Check Existing Notice This Month",
+      "credentials": {
+        "supabaseApi": {
+          "id": "CBE3Hp89mjkdrXFW",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "no-notice-yet",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-672, 0],
+      "id": "should-create",
+      "name": "No Notice Yet This Month?"
+    },
+    {
+      "parameters": {
+        "tableId": "legal_notices",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "tenant_id",     "fieldValue": "={{ $('Loop — Split In Batches').item.json.tenant_id }}" },
+            { "fieldId": "property_id",   "fieldValue": "={{ $('Loop — Split In Batches').item.json.property_id }}" },
+            { "fieldId": "notice_type",   "fieldValue": "={{ $('Loop — Split In Batches').item.json.flag_60_day ? 'non_payment_60day' : 'non_payment_30day' }}" },
+            { "fieldId": "reference_id",  "fieldValue": "={{ 'LN-' + $now.toFormat('yyyyMMdd-HHmmss') }}" },
+            { "fieldId": "rendered_text", "fieldValue": "=Auto-generated draft — {{ $('Loop — Split In Batches').item.json.tenant_name }} — Balance: ${{ $('Loop — Split In Batches').item.json.pending_balance }}" },
+            { "fieldId": "status",        "fieldValue": "draft" },
+            { "fieldId": "generated_at",  "fieldValue": "={{ $now }}" }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [-448, 0],
+      "id": "insert-draft",
+      "name": "Insert Draft Notice",
+      "credentials": {
+        "supabaseApi": {
+          "id": "CBE3Hp89mjkdrXFW",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "skg71885@gmail.com",
+        "subject": "={{ $('Loop — Split In Batches').item.json.flag_60_day ? '🚨 URGENT 60-Day Overdue' : '⚠️ 30-Day Overdue Alert' }}: {{ $('Loop — Split In Batches').item.json.tenant_name }}",
+        "emailType": "text",
+        "message": "=Tenant: {{ $('Loop — Split In Batches').item.json.tenant_name }}\nUnit: {{ $('Loop — Split In Batches').item.json.unit_number ?? '—' }}\nOverdue: {{ $('Loop — Split In Batches').item.json.flag_60_day ? '60+ days' : '30+ days' }}\nOutstanding Balance: ${{ $('Loop — Split In Batches').item.json.pending_balance }}\n\nA draft notice has been created in LandlordOS. Review and send when ready.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [-224, 0],
+      "id": "send-alert",
+      "name": "Email Alert to Sonu",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "6zrUhmfLIrDSE423",
+          "name": "Gmail — skg71885@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: true, tenant_id: $('Loop — Split In Batches').item.json.tenant_id, tenant_name: $('Loop — Split In Batches').item.json.tenant_name, timestamp: new Date().toISOString() } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "id": "log-success",
+      "name": "Log Success"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [-1792, -300],
+      "id": "error-trigger",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "tableId": "system_errors",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "workflow_name", "fieldValue": "={{ $workflow.name }}" },
+            { "fieldId": "error_message", "fieldValue": "={{ $json.execution.error.message }}" },
+            { "fieldId": "created_at",    "fieldValue": "={{ $now }}" }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [-1568, -300],
+      "id": "log-error",
+      "name": "Log Error to system_errors",
+      "credentials": {
+        "supabaseApi": {
+          "id": "CBE3Hp89mjkdrXFW",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every Day 8 AM":               { "main": [[{ "node": "Fetch Flagged Tenants (REST API)",  "type": "main", "index": 0 }]] },
+    "Fetch Flagged Tenants (REST API)": { "main": [[{ "node": "Dedup by Tenant (worst flag wins)", "type": "main", "index": 0 }]] },
+    "Dedup by Tenant (worst flag wins)": { "main": [[{ "node": "Loop — Split In Batches",     "type": "main", "index": 0 }]] },
+    "Loop — Split In Batches":      { "main": [[], [{ "node": "Check Existing Notice This Month", "type": "main", "index": 0 }]] },
+    "Check Existing Notice This Month": { "main": [[{ "node": "No Notice Yet This Month?",    "type": "main", "index": 0 }]] },
+    "No Notice Yet This Month?":    { "main": [[{ "node": "Insert Draft Notice",              "type": "main", "index": 0 }], []] },
+    "Insert Draft Notice":          { "main": [[{ "node": "Email Alert to Sonu",              "type": "main", "index": 0 }]] },
+    "Email Alert to Sonu":          { "main": [[{ "node": "Log Success",                      "type": "main", "index": 0 }]] },
+    "Log Success":                  { "main": [[{ "node": "Loop — Split In Batches",           "type": "main", "index": 0 }]] },
+    "Error Trigger":                { "main": [[{ "node": "Log Error to system_errors",        "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [{ "name": "landlordos-v2" }],
+  "_readme": {
+    "trigger": "Schedule cron — runs daily at 8 AM",
+    "bugs_fixed_vs_v1": [
+      "FIXED: Supabase node 'or' filter — now uses REST API HTTP request with proper PostgREST syntax: or=(flag_30_day.eq.true,flag_60_day.eq.true)",
+      "FIXED: Dedup node added — v1 had no dedup so same tenant could create multiple notices per run",
+      "FIXED: unit_number now comes directly from view_rent_ledger (which already joins tenants) instead of a separate lookup",
+      "FIXED: Gmail credential renamed to skg71885 — v1 had rishabh's email hardcoded in credential name",
+      "FIXED: Dedup check now scoped to current month (created_at >= start of month) so same tenant gets one notice per month max"
+    ],
+    "view_rent_ledger_requires": [
+      "tenant_name column (added in fix-expired-lease-ledger.sql Section 3)",
+      "unit_number or property address column for the email body — if missing, shows '—'",
+      "flag_30_day and flag_60_day boolean columns",
+      "property_id column for inserting into legal_notices"
+    ],
+    "env_var_needed": "SUPABASE_SERVICE_ROLE_KEY must be set in n8n Settings → Environment Variables",
+    "credentials_needed": ["Supabase account (service role key)", "Gmail OAuth — skg71885@gmail.com"]
+  }
+}

@@ -306,5 +306,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: insertError.message }, { status: 500 })
   }
 
-  return NextResponse.json({ notice_id: notice.id, reference_id: referenceId })
+  // Build HTML wrapper for PDF generation
+  const escapedText = renderedText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const noticeHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:11pt;margin:72pt 72pt;color:#000;line-height:1.6}pre{white-space:pre-wrap;word-wrap:break-word;font-family:Arial,sans-serif;font-size:11pt;margin:0}</style></head><body><pre>${escapedText}</pre></body></html>`
+  const pdfFilename = `notice_${tenant.name.replace(/[^a-zA-Z0-9]/g, '_')}_${effectiveNoticeType}_${notice.id}`
+  await supabase.from('pdf_jobs').insert({
+    job_type: 'notice',
+    reference_id: notice.id,
+    html_content: noticeHtml,
+    filename: pdfFilename,
+    status: 'pending',
+  })
+  return NextResponse.json({ notice_id: notice.id, reference_id: referenceId, pdf_queued: true })
 }

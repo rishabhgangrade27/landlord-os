@@ -70,6 +70,11 @@ export default async function TransactionsPage({
       <PageHeader
         title="Transactions"
         description={count != null ? `${count.toLocaleString()} total records` : 'All extracted check records'}
+        action={
+          <LinkButton size="sm" href="/transactions/manual-entry">
+            + Add Manual Payment
+          </LinkButton>
+        }
       />
 
       <div className="p-4 md:p-6 space-y-4">

@@ -36,6 +36,16 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
       .order('month'),
   ])
 
+  const { data: latestCourtPdfJob } = await supabase
+    .from('pdf_jobs')
+    .select('pdf_url')
+    .eq('job_type', 'court_ledger')
+    .eq('reference_id', tenantId)
+    .eq('status', 'done')
+    .order('completed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
   if (!tenant) {
     return <p className="text-sm text-muted-foreground p-6">Tenant not found.</p>
   }
@@ -100,10 +110,16 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
     }
   }
 
-  const months: (MonthRow & { isVacant?: boolean })[] = [
+  // Carry balance forward through vacant gaps so balance column never shows 0 mid-history
+  const monthsSorted = [
     ...leaseMonths,
     ...vacantMonths,
   ].sort((a, b) => a.month.localeCompare(b.month))
+  let _lastBalance = 0
+  const months: (MonthRow & { isVacant?: boolean })[] = monthsSorted.map((m) => {
+    if (!(m as any).isVacant) { _lastBalance = m.balance; return m }
+    return { ...m, balance: _lastBalance }
+  })
 
   const latestBalance = months.at(-1)?.balance ?? 0
   const totalDue     = months.reduce((s, m) => s + m.due, 0)
@@ -143,6 +159,7 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
                 tenantName={tenant.name}
                 caseNumber={tenant.case_number ?? undefined}
                 months={months}
+                latestCourtPdfUrl={latestCourtPdfJob?.pdf_url ?? undefined}
               />
             </div>
           }
@@ -211,6 +228,7 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
           <div className="flex flex-wrap gap-3 text-sm">
             <Link href={`/tenants/${tenantId}`} className="text-primary hover:underline">→ Tenant Profile</Link>
             <Link href={`/transactions?tenant_id=${tenantId}`} className="text-primary hover:underline">→ Transactions</Link>
+            <Link href={`/transactions/manual-entry?tenant_id=${tenantId}`} className="text-primary hover:underline">→ Add Manual Payment</Link>
           </div>
 
           {/* Screen table */}
@@ -357,19 +375,18 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
           <thead>
             <tr>
               <th colSpan={3} style={{ border: '1px solid #000', padding: '3pt 4pt' }} />
-              <th colSpan={6} style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'center', fontWeight: 'bold', background: '#e8e8e8' }}>HRA</th>
+              <th colSpan={5} style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'center', fontWeight: 'bold', background: '#e8e8e8' }}>HRA</th>
               <th colSpan={3} style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'center', fontWeight: 'bold', background: '#e8e8e8' }}>Balance</th>
             </tr>
             <tr style={{ background: '#f2f2f2' }}>
               <th style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'left'  }}>Month</th>
               <th style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'left'  }}>Year</th>
               <th style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'right' }}>Due</th>
-              <th style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'right' }}>Check 1</th>
-              <th style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'center', whiteSpace: 'nowrap' }}>Check #</th>
-              <th style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'right' }}>Check 2</th>
-              <th style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'right' }}>Check 3</th>
-              <th style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'right' }}>Check 4</th>
-              <th style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'right' }}>Check 5</th>
+              <th style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'center' }}>HRA 1</th>
+              <th style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'center' }}>HRA 2</th>
+              <th style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'center' }}>HRA 3</th>
+              <th style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'center' }}>HRA 4</th>
+              <th style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'center' }}>HRA 5</th>
               <th style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'right', whiteSpace: 'nowrap' }}>Paid By Tenant</th>
               <th style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'right' }}>Balance</th>
               <th style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'left'  }}>Comment</th>
@@ -381,7 +398,7 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
                 <tr key={m.month} style={{ background: '#f5f5f5', pageBreakInside: 'avoid' }}>
                   <td style={{ border: '1px solid #000', padding: '2pt 4pt', color: '#888', fontSize: '7.5pt' }}>{monthStr}</td>
                   <td style={{ border: '1px solid #000', padding: '2pt 4pt', color: '#888', fontSize: '7.5pt' }}>{yearStr}</td>
-                  <td colSpan={10} style={{ border: '1px solid #000', padding: '2pt 4pt', color: '#888', fontStyle: 'italic', fontSize: '7.5pt' }}>
+                  <td colSpan={9} style={{ border: '1px solid #000', padding: '2pt 4pt', color: '#888', fontStyle: 'italic', fontSize: '7.5pt' }}>
                     — Vacant —
                   </td>
                 </tr>
@@ -390,12 +407,18 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
                 <td style={{ border: '1px solid #000', padding: '2pt 4pt' }}>{monthStr}</td>
                 <td style={{ border: '1px solid #000', padding: '2pt 4pt' }}>{yearStr}</td>
                 <td style={{ border: '1px solid #000', padding: '2pt 4pt', textAlign: 'right' }}>{m.due > 0 ? `$${m.due.toFixed(2)}` : ''}</td>
-                <td style={{ border: '1px solid #000', padding: '2pt 4pt', textAlign: 'right' }}>{checks[0] ? `$${checks[0].amount.toFixed(2)}` : ''}</td>
-                <td style={{ border: '1px solid #000', padding: '2pt 4pt', textAlign: 'center', fontFamily: 'monospace', fontSize: '7.5pt' }}>{allCheckNums}</td>
-                <td style={{ border: '1px solid #000', padding: '2pt 4pt', textAlign: 'right' }}>{checks[1] ? `$${checks[1].amount.toFixed(2)}` : ''}</td>
-                <td style={{ border: '1px solid #000', padding: '2pt 4pt', textAlign: 'right' }}>{checks[2] ? `$${checks[2].amount.toFixed(2)}` : ''}</td>
-                <td style={{ border: '1px solid #000', padding: '2pt 4pt', textAlign: 'right' }}>{checks[3] ? `$${checks[3].amount.toFixed(2)}` : ''}</td>
-                <td style={{ border: '1px solid #000', padding: '2pt 4pt', textAlign: 'right' }}>{checks[4] ? `$${checks[4].amount.toFixed(2)}` : ''}</td>
+                {[0,1,2,3,4].map((i) => (
+                  <td key={i} style={{ border: '1px solid #000', padding: '2pt 4pt', textAlign: 'center' }}>
+                    {checks[i] ? (
+                      <>
+                        <div>${checks[i].amount.toFixed(2)}</div>
+                        {checks[i].check_number && (
+                          <div style={{ fontSize: '6.5pt', color: '#555', fontFamily: 'monospace' }}>#{checks[i].check_number}</div>
+                        )}
+                      </>
+                    ) : ''}
+                  </td>
+                ))}
                 <td style={{ border: '1px solid #000', padding: '2pt 4pt' }} />
                 <td style={{ border: '1px solid #000', padding: '2pt 4pt', textAlign: 'right', fontWeight: 'bold' }}>
                   {bal > 0 ? `$${bal.toFixed(2)}` : bal < 0 ? `($${Math.abs(bal).toFixed(2)})` : '—'}
@@ -411,9 +434,7 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
             <tr style={{ background: '#e8e8e8', fontWeight: 'bold' }}>
               <td colSpan={2} style={{ border: '1px solid #000', padding: '3pt 4pt' }}>TOTAL</td>
               <td style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'right' }}>${totalDue.toFixed(2)}</td>
-              <td style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'right' }}>{totalsByCol[0] > 0 ? `$${totalsByCol[0].toFixed(2)}` : '$0.00'}</td>
-              <td style={{ border: '1px solid #000', padding: '3pt 4pt' }} />
-              {[1,2,3,4].map((i) => (
+              {[0,1,2,3,4].map((i) => (
                 <td key={i} style={{ border: '1px solid #000', padding: '3pt 4pt', textAlign: 'right' }}>{totalsByCol[i] > 0 ? `$${totalsByCol[i].toFixed(2)}` : '$0.00'}</td>
               ))}
               <td style={{ border: '1px solid #000', padding: '3pt 4pt' }} />

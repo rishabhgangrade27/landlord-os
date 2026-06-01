@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { Building2, ArrowLeft } from 'lucide-react'
 import { LedgerExportButton, type LedgerMonthRow } from './ledger-export-button'
+import { GeneratePDFButton } from './generate-pdf-button'
 
 // ─── Per-tenant court ledger ──────────────────────────────────────────────────
 async function TenantLedger({ tenantId }: { tenantId: string }) {
@@ -154,6 +155,7 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
                 <ArrowLeft className="w-4 h-4 mr-1.5" />
                 All Units
               </LinkButton>
+              <GeneratePDFButton tenantId={tenantId} />
               <LedgerExportButton
                 tenantId={tenantId}
                 tenantName={tenant.name}

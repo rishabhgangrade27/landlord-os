@@ -307,8 +307,22 @@ export async function POST(request: Request) {
   }
 
   // Build HTML wrapper for PDF generation
-  const escapedText = renderedText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  const noticeHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:11pt;margin:72pt 72pt;color:#000;line-height:1.6}pre{white-space:pre-wrap;word-wrap:break-word;font-family:Arial,sans-serif;font-size:11pt;margin:0}</style></head><body><pre>${escapedText}</pre></body></html>`
+  // Convert plain-text notice to styled HTML matching legal document format
+  const lines = renderedText.split('\n')
+  const firstNonEmpty = lines.findIndex(l => l.trim().length > 0)
+  const titleLine = firstNonEmpty >= 0 ? lines[firstNonEmpty].trim() : ''
+  const bodyLines = firstNonEmpty >= 0 ? lines.slice(firstNonEmpty + 1) : lines
+  const htmlBody = bodyLines
+    .join('\n')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/PLEASE TAKE NOTICE/g, '<strong>PLEASE TAKE NOTICE</strong>')
+    .replace(/PLEASE TAKE FURTHER NOTICE/g, '<strong>PLEASE TAKE FURTHER NOTICE</strong>')
+    .replace(/LANDLORD\/OWNER:/g, '<strong>LANDLORD/OWNER:</strong>')
+    .split('\n')
+    .map(l => l === '' ? '<br>' : '<p style="margin:0 0 6pt">' + l + '</p>')
+    .join('')
+  const safeTitle = titleLine.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const noticeHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:11pt;margin:72pt 72pt;color:#000;line-height:1.6}p{margin:0 0 6pt}strong{font-weight:bold}</style></head><body><h2 style="text-align:center;font-size:13pt;margin-bottom:18pt">${safeTitle}</h2>${htmlBody}</body></html>`
   const pdfFilename = `notice_${tenant.name.replace(/[^a-zA-Z0-9]/g, '_')}_${effectiveNoticeType}_${notice.id}`
   await supabase.from('pdf_jobs').insert({
     job_type: 'notice',
@@ -317,5 +331,18 @@ export async function POST(request: Request) {
     filename: pdfFilename,
     status: 'pending',
   })
+  // Queue attorney notification email
+  await supabase.from('notice_attorney_queue').insert({
+    notice_id: notice.id,
+    tenant_name: tenant.name,
+    notice_type: effectiveNoticeType,
+    rendered_text: renderedText,
+    attorney_email: attorneyEmail,
+    status: 'pending',
+  })
+  await supabase.from('legal_notices').update({
+    attorney_email_sent: false,
+  }).eq('id', notice.id)
+
   return NextResponse.json({ notice_id: notice.id, reference_id: referenceId, pdf_queued: true })
 }

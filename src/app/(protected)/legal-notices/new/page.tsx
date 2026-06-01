@@ -21,9 +21,10 @@ import { toast } from 'sonner'
 import { ArrowLeft, AlertTriangle } from 'lucide-react'
 
 const NOTICE_TYPES = [
-  { value: 'non_payment_30day',   label: '30-Day Rent Demand Letter (to HRA)' },
-  { value: 'non_payment_60day',   label: '14-Day Notice of Cure/Quit' },
+  { value: 'notice_30day',        label: '30-Day Notice of Rent Demand (to Tenant)' },
+  { value: 'non_payment_60day',   label: '14-Day Notice of Cure/Quit (to Tenant)' },
   { value: 'notice_90day',        label: '90-Day Termination Notice (auto-detects property)' },
+  { value: 'non_payment_30day',   label: '30-Day HRA Rent Demand Letter (to HRA)' },
   { value: 'court_form',          label: 'Court — Holdover Petition' },
   { value: 'court_form_nonpayment', label: 'Court — Non-Payment Petition' },
 ]

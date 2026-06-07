@@ -65,10 +65,10 @@ export default async function DashboardPage() {
       <div className="p-4 md:p-6 space-y-6">
         {/* Row 1: Core counts */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
+          <Card className="border-l-4 border-l-indigo-400">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-sm font-medium text-muted-foreground">Properties</CardTitle>
-              <Building2 className="w-4 h-4 text-muted-foreground" />
+              <Building2 className="w-4 h-4 text-indigo-500" />
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">{propertyCount ?? 0}</p>
@@ -78,10 +78,10 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-l-emerald-400">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-sm font-medium text-muted-foreground">Active Tenants</CardTitle>
-              <Users className="w-4 h-4 text-muted-foreground" />
+              <Users className="w-4 h-4 text-emerald-500" />
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">{tenantCount ?? 0}</p>
@@ -91,10 +91,10 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-l-sky-400">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-sm font-medium text-muted-foreground">Active Leases</CardTitle>
-              <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
+              <CheckCircle2 className="w-4 h-4 text-sky-500" />
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">{activeLeaseCount ?? 0}</p>
@@ -104,13 +104,15 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className={`border-l-4 ${(pendingReviewCount ?? 0) > 0 ? 'border-l-amber-400 bg-amber-50/30' : 'border-l-slate-200'}`}>
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-sm font-medium text-muted-foreground">Needs Review</CardTitle>
-              <Clock className="w-4 h-4 text-muted-foreground" />
+              <Clock className={`w-4 h-4 ${(pendingReviewCount ?? 0) > 0 ? 'text-amber-500' : 'text-muted-foreground'}`} />
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{pendingReviewCount ?? 0}</p>
+              <p className={`text-2xl font-bold ${(pendingReviewCount ?? 0) > 0 ? 'text-amber-600' : ''}`}>
+                {pendingReviewCount ?? 0}
+              </p>
               <Link
                 href="/transactions?status=needs_review"
                 className="text-xs text-muted-foreground hover:underline"
@@ -123,12 +125,12 @@ export default async function DashboardPage() {
 
         {/* Row 2: Action counts */}
         <div className="grid grid-cols-2 lg:grid-cols-2 gap-4">
-          <Card className={draftNoticeCount ? 'border-amber-200 bg-amber-50/30' : ''}>
+          <Card className={`border-l-4 ${draftNoticeCount ? 'border-l-amber-400 border-amber-200 bg-amber-50/30' : 'border-l-slate-200'}`}>
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Draft Legal Notices
               </CardTitle>
-              <Scale className="w-4 h-4 text-muted-foreground" />
+              <Scale className={`w-4 h-4 ${draftNoticeCount ? 'text-amber-500' : 'text-muted-foreground'}`} />
             </CardHeader>
             <CardContent>
               <p className={`text-2xl font-bold ${draftNoticeCount ? 'text-amber-600' : ''}`}>
@@ -143,15 +145,17 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className={maintenanceOpen ? 'border-blue-200' : ''}>
+          <Card className={`border-l-4 ${maintenanceOpen ? 'border-l-blue-400 border-blue-200' : 'border-l-slate-200'}`}>
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Open Maintenance
               </CardTitle>
-              <Wrench className="w-4 h-4 text-muted-foreground" />
+              <Wrench className={`w-4 h-4 ${maintenanceOpen ? 'text-blue-500' : 'text-muted-foreground'}`} />
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{maintenanceOpen ?? 0}</p>
+              <p className={`text-2xl font-bold ${maintenanceOpen ? 'text-blue-600' : ''}`}>
+                {maintenanceOpen ?? 0}
+              </p>
               <Link href="/maintenance" className="text-xs text-muted-foreground hover:underline">
                 View tickets →
               </Link>
@@ -239,8 +243,12 @@ export default async function DashboardPage() {
                           ${t.extracted_amount?.toFixed(2) ?? '0.00'}
                         </span>
                         <Badge
-                          variant={t.status === 'verified' ? 'default' : 'secondary'}
-                          className="text-xs"
+                          variant="outline"
+                          className={`text-xs border ${
+                            t.status === 'verified'
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                              : 'bg-blue-100 text-blue-800 border-blue-200'
+                          }`}
                         >
                           {t.status}
                         </Badge>

@@ -51,13 +51,14 @@ type Transaction = {
   created_by: string | null
 }
 
-const STATUS_COLORS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  verified: 'default',
-  processing: 'secondary',
-  needs_review: 'outline',
-  blank_detected: 'secondary',
-  duplicate_suspected: 'destructive',
-  rejected: 'destructive',
+const STATUS_CLASS: Record<string, string> = {
+  verified:            'bg-emerald-100 text-emerald-800 border-emerald-200',
+  processing:          'bg-blue-100 text-blue-800 border-blue-200',
+  needs_review:        'bg-amber-100 text-amber-800 border-amber-200',
+  duplicate_suspected: 'bg-purple-100 text-purple-800 border-purple-200',
+  rejected:            'bg-red-100 text-red-800 border-red-200',
+  blank_detected:      'bg-slate-100 text-slate-600 border-slate-200',
+  deleted_blank:       'bg-slate-100 text-slate-500 border-slate-200',
 }
 
 export function TransactionReviewPanel({
@@ -92,6 +93,12 @@ export function TransactionReviewPanel({
   const [saving, setSaving]     = useState(false)
   const [verifying, setVerifying] = useState(false)
   const [rejecting, setRejecting] = useState(false)
+
+  // Inline add-tenant state
+  const [tenantsList, setTenantsList] = useState(allTenants)
+  const [showAddTenant, setShowAddTenant] = useState(false)
+  const [addTenantForm, setAddTenantForm] = useState({ name: '', case_number: '' })
+  const [addTenantSaving, setAddTenantSaving] = useState(false)
 
   function set(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -175,6 +182,30 @@ export function TransactionReviewPanel({
     setRejecting(false)
   }
 
+  // ── Add new tenant inline ──────────────────────────────────────────────────
+  async function handleAddTenant() {
+    if (!addTenantForm.name.trim() || !addTenantForm.case_number.trim()) {
+      toast.error('Name and case number are required.')
+      return
+    }
+    setAddTenantSaving(true)
+    const { data, error } = await supabase
+      .from('tenants')
+      .insert({ name: addTenantForm.name.trim(), case_number: addTenantForm.case_number.trim() })
+      .select('id, name, case_number, status')
+      .single()
+    if (error) {
+      toast.error(error.message)
+    } else {
+      setTenantsList(prev => [...prev, data as TenantOption])
+      set('matched_tenant_id', data.id)
+      setShowAddTenant(false)
+      setAddTenantForm({ name: '', case_number: '' })
+      toast.success(`Tenant "${data.name}" created and selected.`)
+    }
+    setAddTenantSaving(false)
+  }
+
   // ── Reset to needs_review (un-verify / un-reject) ─────────────────────────
   async function handleReset() {
     const { error } = await supabase
@@ -250,14 +281,14 @@ export function TransactionReviewPanel({
       </div>
 
       {/* ── RIGHT: Review Form ────────────────────────────────────────────── */}
-      <div className="lg:w-[45%] overflow-y-auto max-h-[none] lg:max-h-full">
+      <div className="lg:w-[45%] overflow-y-auto max-h-none lg:max-h-full">
         <div className="p-5 space-y-4">
 
           {/* Status row */}
           <div className="flex items-center justify-between">
             <Badge
-              variant={STATUS_COLORS[transaction.status ?? ''] ?? 'secondary'}
-              className="capitalize text-xs"
+              variant="outline"
+              className={`capitalize text-xs border ${STATUS_CLASS[transaction.status ?? ''] ?? 'bg-slate-100 text-slate-600 border-slate-200'}`}
             >
               {transaction.status ?? '—'}
             </Badge>
@@ -379,29 +410,81 @@ export function TransactionReviewPanel({
                   <Badge variant="default" className="text-xs">Verified</Badge>
                 </div>
               ) : (
-                <div className="space-y-1">
-                  <Label className="text-xs">Select tenant</Label>
-                  <Select
-                    value={form.matched_tenant_id}
-                    onValueChange={(v) => set('matched_tenant_id', v ?? '')}
-                    disabled={isVerified}
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="No tenant matched — select manually" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unmatched" className="text-xs italic text-muted-foreground">
-                        — Unmatched —
-                      </SelectItem>
-                      {allTenants.map((t) => (
-                        <SelectItem key={t.id} value={t.id} className="text-xs">
-                          {t.name}
-                          {t.case_number ? ` · ${t.case_number}` : ''}
-                          {t.status === 'moved_out' ? ' (moved out)' : ''}
+                <div className="space-y-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Select tenant</Label>
+                    <Select
+                      value={form.matched_tenant_id}
+                      onValueChange={(v) => set('matched_tenant_id', v ?? '')}
+                      disabled={isVerified}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="No tenant matched — select manually" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unmatched" className="text-xs italic text-muted-foreground">
+                          — Unmatched —
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        {tenantsList.map((t) => (
+                          <SelectItem key={t.id} value={t.id} className="text-xs">
+                            {t.name}
+                            {t.case_number ? ` · ${t.case_number}` : ''}
+                            {t.status === 'moved_out' ? ' (moved out)' : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {!showAddTenant ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddTenant(true)}
+                      className="text-xs text-primary underline underline-offset-2"
+                    >
+                      + Add new tenant
+                    </button>
+                  ) : (
+                    <div className="space-y-2 border rounded-md p-3 bg-muted/30">
+                      <p className="text-xs font-medium text-foreground">New Tenant</p>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Name *</Label>
+                        <Input
+                          className="h-8 text-xs"
+                          placeholder="Full name"
+                          value={addTenantForm.name}
+                          onChange={e => setAddTenantForm(p => ({ ...p, name: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Case Number *</Label>
+                        <Input
+                          className="h-8 text-xs font-mono"
+                          placeholder="e.g. 12345678B-01"
+                          value={addTenantForm.case_number}
+                          onChange={e => setAddTenantForm(p => ({ ...p, case_number: e.target.value }))}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="flex-1 h-7 text-xs"
+                          onClick={handleAddTenant}
+                          disabled={addTenantSaving}
+                        >
+                          {addTenantSaving ? 'Saving…' : 'Create & Select'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => { setShowAddTenant(false); setAddTenantForm({ name: '', case_number: '' }) }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

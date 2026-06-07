@@ -108,9 +108,9 @@
         "resource": "document",
         "modelId": {
           "__rl": true,
-          "value": "models/gemini-2.0-flash",
+          "value": "models/gemini-2.5-flash",
           "mode": "list",
-          "cachedResultName": "models/gemini-2.0-flash"
+          "cachedResultName": "models/gemini-2.5-flash"
         },
         "text": "=You are a highly specialized financial auditor and OCR expert specializing in NYC Department of Social Services (DSS) Public Assistance checks, Western Union Money Orders, and standard bank checks.\n\nAnalyze this multi-page PDF document. It contains a mix of check fronts, check stubs, and the backs of checks (endorsements).\n\nFor EACH PAGE, evaluate its contents.\n\nCRITICAL RULE FOR 'is_blank':\n\nIf the page is the BACK of a check (showing 'Endorse Here', signatures, or 'Deposit Only'), a completely blank page, or just a payment stub/receipt (not the actual negotiable check), you MUST set 'is_blank' to true.\n\nIf it is a valid FRONT of a check or money order, set 'is_blank' to false and extract the data.\n\nEXTRACTION RULES (Only if is_blank is false):\n\ncase_number: Look for the 'CASE NUMBER' field (e.g., 00037145839J-01). Western Union money orders usually DO NOT have this; return null if not explicitly found. Do not guess.\n\namount: The 'TOTAL DOLLARS' or 'AMOUNT' field. Convert this to a pure number (e.g., 200.00). Ignore stars or symbols like ********$.\n\ncheck_number: Look for the 'CHECK NUMBER' on the top right or the middle number in the bottom MICR line (e.g., 25595287).\n\ncheck_date: The 'DATE' of the check. Format it strictly as YYYY-MM-DD.\n\nrent_from / rent_to: Look for the table specifying the payment period (e.g., 'FROM: 08/14/2020 TO: 08/28/2020'). Extract these dates exactly as written. If not found, return null.\n\nReturn a strict JSON Array containing objects for EVERY page. Schema:\n[ { \"page_number\": number, \"is_blank\": boolean, \"case_number\": string | null, \"amount\": number | null, \"check_number\": string | null, \"check_date\": string | null, \"rent_from\": string | null, \"rent_to\": string | null } ]",
         "inputType": "binary",

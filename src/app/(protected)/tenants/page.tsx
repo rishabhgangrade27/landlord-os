@@ -67,11 +67,14 @@ export default async function TenantsPage() {
                   <tbody>
                     {tenants.map((t) => {
                       const property = leaseLookup.get(t.id)
-                      const unitLabel = property?.nickname
-                        ?? property?.name
-                        ?? null
+                      const unitLabel = property?.nickname ?? property?.name ?? null
+                      const isActive = !t.status || t.status === 'active'
+                      const rowBorder = isActive ? 'border-l-2 border-l-emerald-400' : 'border-l-2 border-l-slate-200'
+                      const statusClass = isActive
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                        : 'bg-slate-100 text-slate-500 border-slate-200'
                       return (
-                        <tr key={t.id} className="border-b last:border-0 hover:bg-muted/20">
+                        <tr key={t.id} className={`border-b last:border-0 hover:bg-muted/20 ${rowBorder}`}>
                           <td className="px-4 py-3">
                             {unitLabel && (
                               <p className="text-[11px] font-semibold text-muted-foreground mb-0.5 uppercase tracking-wide">
@@ -94,8 +97,8 @@ export default async function TenantsPage() {
                           </td>
                           <td className="px-4 py-3">
                             <Badge
-                              variant={t.status === 'active' ? 'default' : 'secondary'}
-                              className="text-xs capitalize"
+                              variant="outline"
+                              className={`text-xs capitalize border ${statusClass}`}
                             >
                               {t.status ?? 'active'}
                             </Badge>

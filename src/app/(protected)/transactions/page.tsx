@@ -8,13 +8,14 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 const PAGE_SIZE = 50
 
-const STATUS_COLORS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  verified: 'default',
-  processing: 'secondary',
-  needs_review: 'outline',
-  blank_detected: 'secondary',
-  duplicate_suspected: 'destructive',
-  rejected: 'destructive',
+const STATUS_CLASS: Record<string, string> = {
+  verified:            'bg-emerald-100 text-emerald-800 border-emerald-200',
+  processing:          'bg-blue-100 text-blue-800 border-blue-200',
+  needs_review:        'bg-amber-100 text-amber-800 border-amber-200',
+  duplicate_suspected: 'bg-purple-100 text-purple-800 border-purple-200',
+  rejected:            'bg-red-100 text-red-800 border-red-200',
+  blank_detected:      'bg-slate-100 text-slate-600 border-slate-200',
+  deleted_blank:       'bg-slate-100 text-slate-500 border-slate-200',
 }
 
 export default async function TransactionsPage({
@@ -80,19 +81,27 @@ export default async function TransactionsPage({
       <div className="p-4 md:p-6 space-y-4">
         {/* Status filter tabs */}
         <div className="flex flex-wrap gap-2">
-          {statuses.map((s) => (
-            <Link
-              key={s.value}
-              href={s.value ? `/transactions?status=${s.value}` : '/transactions'}
-            >
-              <Badge
-                variant={status === s.value || (!status && !s.value) ? 'default' : 'outline'}
-                className="cursor-pointer"
+          {statuses.map((s) => {
+            const active = status === s.value || (!status && !s.value)
+            const colorClass = s.value ? STATUS_CLASS[s.value] : ''
+            return (
+              <Link
+                key={s.value}
+                href={s.value ? `/transactions?status=${s.value}` : '/transactions'}
               >
-                {s.label}
-              </Badge>
-            </Link>
-          ))}
+                <Badge
+                  variant="outline"
+                  className={`cursor-pointer border ${
+                    active
+                      ? colorClass || 'bg-foreground text-background border-foreground'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  {s.label}
+                </Badge>
+              </Link>
+            )
+          })}
         </div>
 
         {!transactions?.length ? (
@@ -177,8 +186,8 @@ export default async function TransactionsPage({
                             </td>
                             <td className="px-4 py-2.5">
                               <Badge
-                                variant={STATUS_COLORS[t.status ?? ''] ?? 'secondary'}
-                                className="text-xs"
+                                variant="outline"
+                                className={`text-xs border ${STATUS_CLASS[t.status ?? ''] ?? 'bg-slate-100 text-slate-600 border-slate-200'}`}
                               >
                                 {t.status ?? '—'}
                               </Badge>

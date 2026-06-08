@@ -5,6 +5,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { LinkButton } from '@/components/ui/link-button'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { Suspense } from 'react'
+import { DateFilter } from './date-filter'
 
 const PAGE_SIZE = 50
 
@@ -21,9 +23,9 @@ const STATUS_CLASS: Record<string, string> = {
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; tenant_id?: string; page?: string }>
+  searchParams: Promise<{ status?: string; tenant_id?: string; page?: string; date_from?: string; date_to?: string }>
 }) {
-  const { status, tenant_id, page: pageParam } = await searchParams
+  const { status, tenant_id, page: pageParam, date_from, date_to } = await searchParams
   const page = Math.max(1, parseInt(pageParam ?? '1'))
   const from = (page - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
@@ -43,6 +45,8 @@ export default async function TransactionsPage({
 
   if (status) query = query.eq('status', status)
   if (tenant_id) query = query.eq('matched_tenant_id', tenant_id)
+  if (date_from) query = query.gte('extracted_check_date', date_from)
+  if (date_to) query = query.lte('extracted_check_date', date_to)
 
   const { data: transactions, count } = await query
 
@@ -52,6 +56,8 @@ export default async function TransactionsPage({
     const params = new URLSearchParams()
     if (status) params.set('status', status)
     if (tenant_id) params.set('tenant_id', tenant_id)
+    if (date_from) params.set('date_from', date_from)
+    if (date_to) params.set('date_to', date_to)
     params.set('page', String(p))
     return `/transactions?${params.toString()}`
   }
@@ -82,6 +88,7 @@ export default async function TransactionsPage({
         {/* Status filter tabs */}
         <div className="flex flex-wrap gap-2">
           {statuses.map((s) => {
+
             const active = status === s.value || (!status && !s.value)
             const colorClass = s.value ? STATUS_CLASS[s.value] : ''
             return (
@@ -103,6 +110,11 @@ export default async function TransactionsPage({
             )
           })}
         </div>
+
+        {/* Date range filter */}
+        <Suspense>
+          <DateFilter />
+        </Suspense>
 
         {!transactions?.length ? (
           <Card>

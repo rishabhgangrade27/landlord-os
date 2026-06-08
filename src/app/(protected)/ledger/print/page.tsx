@@ -223,7 +223,9 @@ export default async function LedgerPrintPage({
                 const yearStr = parts[1] ?? ''
                 const bal = m.balance
                 const checks = m.checks.slice(0, 5)
-                const totalReceived = checks.reduce((s, c) => s + c.amount, 0)
+                const overflowChecks = m.checks.slice(5)
+                const overflowTotal  = overflowChecks.reduce((s, c) => s + c.amount, 0)
+                const totalReceived = m.checks.reduce((s, c) => s + c.amount, 0)
 
                 return (
                   <tr
@@ -263,6 +265,9 @@ export default async function LedgerPrintPage({
                     </td>
                     <td className="border border-black px-2 py-1 text-[9px]">
                       {totalReceived === 0 && m.due > 0 ? 'No payment received' : ''}
+                      {overflowChecks.length > 0 && (
+                        <span>{totalReceived === 0 && m.due > 0 ? ' · ' : ''}+{overflowChecks.length} more · ${overflowTotal.toFixed(2)}</span>
+                      )}
                     </td>
                   </tr>
                 )

@@ -129,15 +129,17 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
 
   // ── Shared table body rows (used in both screen + print) ──────────────────
   const tableRows = months.map((m) => {
-    const parts        = m.month_label.split(' ')
-    const monthStr     = parts[0]
-    const yearStr      = parts[1] ?? ''
-    const bal          = m.balance
-    const checks       = m.checks.slice(0, 5)
-    const totalReceived = checks.reduce((s, c) => s + c.amount, 0)
-    const allCheckNums  = checks.map((c) => c.check_number).filter(Boolean).join(', ')
-    const isVacant      = !!(m as any).isVacant
-    return { m, monthStr, yearStr, bal, checks, totalReceived, allCheckNums, isVacant }
+    const parts          = m.month_label.split(' ')
+    const monthStr       = parts[0]
+    const yearStr        = parts[1] ?? ''
+    const bal            = m.balance
+    const checks         = m.checks.slice(0, 5)
+    const overflowChecks = m.checks.slice(5)
+    const overflowTotal  = overflowChecks.reduce((s, c) => s + c.amount, 0)
+    const totalReceived  = m.checks.reduce((s, c) => s + c.amount, 0)
+    const allCheckNums   = checks.map((c) => c.check_number).filter(Boolean).join(', ')
+    const isVacant       = !!(m as any).isVacant
+    return { m, monthStr, yearStr, bal, checks, overflowChecks, overflowTotal, totalReceived, allCheckNums, isVacant }
   })
 
   return (
@@ -266,7 +268,7 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
                       </tr>
                     </thead>
                     <tbody>
-                      {tableRows.map(({ m, monthStr, yearStr, bal, checks, totalReceived, isVacant }) => (
+                      {tableRows.map(({ m, monthStr, yearStr, bal, checks, overflowChecks, overflowTotal, totalReceived, isVacant }) => (
                         isVacant ? (
                           <tr key={m.month} className="border-b last:border-0 bg-neutral-50/60">
                             <td className="px-3 py-1.5 text-muted-foreground/60 text-[11px]">{monthStr}</td>
@@ -297,8 +299,15 @@ async function TenantLedger({ tenantId }: { tenantId: string }) {
                           <td className={`px-3 py-2 text-right font-bold bg-muted/10 ${bal > 0 ? 'text-destructive' : bal < 0 ? 'text-green-700' : 'text-muted-foreground'}`}>
                             {bal > 0 ? `$${bal.toFixed(2)}` : bal < 0 ? `($${Math.abs(bal).toFixed(2)})` : '$0.00'}
                           </td>
-                          <td className="px-3 py-2 text-[10px]">
-                            {totalReceived === 0 && m.due > 0 ? <span className="text-orange-500 font-medium">No payment</span> : null}
+                          <td className="px-3 py-2 text-[10px] space-y-0.5">
+                            {totalReceived === 0 && m.due > 0 ? (
+                              <span className="text-orange-500 font-medium">No payment</span>
+                            ) : null}
+                            {overflowChecks.length > 0 && (
+                              <span className="block text-blue-600 font-medium">
+                                +{overflowChecks.length} more check{overflowChecks.length > 1 ? 's' : ''} · ${overflowTotal.toFixed(2)}
+                              </span>
+                            )}
                           </td>
                         </tr>
                         )

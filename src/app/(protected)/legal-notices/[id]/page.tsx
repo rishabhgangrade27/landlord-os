@@ -5,11 +5,13 @@ import { LinkButton } from '@/components/ui/link-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Printer, Download } from 'lucide-react'
+import { ArrowLeft, Download } from 'lucide-react'
 import { SendToAttorneyButton } from './send-attorney-button'
 import { UpdateNoticeStatusDialog } from './update-status-dialog'
+import { PrintButton } from './print-button'
 
 const NOTICE_LABELS: Record<string, string> = {
+  notice_30day:          '30-Day Notice of Rent Demand (to Tenant)',
   non_payment_30day:     '30-Day Rent Demand Letter (HRA)',
   non_payment_60day:     '14-Day Notice of Cure/Quit',
   notice_90day:          '90-Day Termination Notice',
@@ -180,13 +182,7 @@ export default async function LegalNoticeDetailPage({
               PDF queued — run WF5 in n8n
             </span>
           ) : null}
-          <button
-            onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-md hover:bg-muted/30"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            Print / Save PDF
-          </button>
+          <PrintButton />
         </div>
 
         {/* Print styles — hides nav/header, shows only notice text */}

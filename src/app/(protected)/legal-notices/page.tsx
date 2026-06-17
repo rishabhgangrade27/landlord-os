@@ -16,7 +16,8 @@ const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 
 }
 
 const NOTICE_LABELS: Record<string, string> = {
-  non_payment_30day:     '30-Day Demand',
+  notice_30day:          '30-Day Rent Demand (Tenant)',
+  non_payment_30day:     '30-Day Demand (HRA)',
   non_payment_60day:     '14-Day Cure Notice',
   notice_90day:          '90-Day Notice',
   notice_90day_b84:      '90-Day Notice (B84)',
@@ -46,8 +47,7 @@ export default async function LegalNoticesPage({
     .from('legal_notices')
     .select(`
       id, notice_type, status, generated_at, sent_at, attorney_email,
-      tenants(id, name, case_number),
-      units(unit_number, properties(name, address))
+      tenants(id, name, case_number)
     `)
     .order('generated_at', { ascending: false })
 

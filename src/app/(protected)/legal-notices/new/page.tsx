@@ -138,7 +138,7 @@ function GenerateNoticeContent() {
                   Tenant <span className="text-destructive">*</span>
                 </Label>
                 <Select value={tenantId} onValueChange={(v) => setTenantId(v ?? '')}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select tenant" />
                   </SelectTrigger>
                   <SelectContent>
@@ -157,7 +157,7 @@ function GenerateNoticeContent() {
                   Notice Type <span className="text-destructive">*</span>
                 </Label>
                 <Select value={noticeType} onValueChange={(v) => setNoticeType(v ?? '')}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select notice type" />
                   </SelectTrigger>
                   <SelectContent>

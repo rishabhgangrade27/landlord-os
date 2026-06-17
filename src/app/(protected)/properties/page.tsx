@@ -6,11 +6,16 @@ import { LinkButton } from '@/components/ui/link-button'
 import Link from 'next/link'
 import { Building2, Plus, User, MapPin } from 'lucide-react'
 
-export default async function PropertiesPage() {
+export default async function PropertiesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ show_retired?: string }>
+}) {
+  const { show_retired } = await searchParams
   const supabase = await createClient()
 
   // Fetch all properties (units) with their active leases + tenants
-  const { data: properties } = await supabase
+  let propQuery = supabase
     .from('properties')
     .select(`
       id, name, nickname, address, city, state, zip, status, property_type,
@@ -20,6 +25,13 @@ export default async function PropertiesPage() {
       )
     `)
     .order('nickname')
+
+  // Hide Retired and Sold by default; show them when ?show_retired=1
+  if (!show_retired) {
+    propQuery = propQuery.not('status', 'in', '("Retired","Sold")')
+  }
+
+  const { data: properties } = await propQuery
 
   // Group units by building name (extracted from nickname)
   function getBuildingName(nickname: string | null, address: string | null): string {
@@ -45,10 +57,21 @@ export default async function PropertiesPage() {
         title="Properties"
         description="Buildings and units under management"
         action={
-          <LinkButton size="sm" href="/properties/new">
-            <Plus className="w-4 h-4 mr-1.5" />
-            Add Unit
-          </LinkButton>
+          <div className="flex gap-2">
+            {show_retired ? (
+              <LinkButton variant="outline" size="sm" href="/properties">
+                Hide Retired
+              </LinkButton>
+            ) : (
+              <LinkButton variant="outline" size="sm" href="/properties?show_retired=1">
+                Show Retired
+              </LinkButton>
+            )}
+            <LinkButton size="sm" href="/properties/new">
+              <Plus className="w-4 h-4 mr-1.5" />
+              Add Unit
+            </LinkButton>
+          </div>
         }
       />
 

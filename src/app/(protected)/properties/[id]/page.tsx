@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { ArrowLeft, User, Calendar, AlertTriangle } from 'lucide-react'
 import { EditPropertyDialog } from './edit-property-dialog'
 import { EditLeaseDialog } from '@/app/(protected)/leases/edit-lease-dialog'
+import { RetirePropertyButton } from './retire-property-button'
 
 export default async function PropertyDetailPage({
   params,
@@ -61,6 +62,7 @@ export default async function PropertyDetailPage({
               <ArrowLeft className="w-4 h-4 mr-1.5" />
               Back
             </LinkButton>
+            <RetirePropertyButton propertyId={property.id} currentStatus={property.status ?? null} />
             <EditPropertyDialog property={property} />
           </div>
         }

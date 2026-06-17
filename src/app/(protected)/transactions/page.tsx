@@ -23,9 +23,9 @@ const STATUS_CLASS: Record<string, string> = {
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; tenant_id?: string; page?: string; date_from?: string; date_to?: string }>
+  searchParams: Promise<{ status?: string; tenant_id?: string; page?: string; date_from?: string; date_to?: string; case_number?: string; amount_min?: string; amount_max?: string }>
 }) {
-  const { status, tenant_id, page: pageParam, date_from, date_to } = await searchParams
+  const { status, tenant_id, page: pageParam, date_from, date_to, case_number, amount_min, amount_max } = await searchParams
   const page = Math.max(1, parseInt(pageParam ?? '1'))
   const from = (page - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
@@ -47,6 +47,9 @@ export default async function TransactionsPage({
   if (tenant_id) query = query.eq('matched_tenant_id', tenant_id)
   if (date_from) query = query.gte('extracted_check_date', date_from)
   if (date_to) query = query.lte('extracted_check_date', date_to)
+  if (case_number) query = query.ilike('extracted_case_number', `%${case_number}%`)
+  if (amount_min) query = query.gte('extracted_amount', parseFloat(amount_min))
+  if (amount_max) query = query.lte('extracted_amount', parseFloat(amount_max))
 
   const { data: transactions, count } = await query
 
@@ -58,6 +61,9 @@ export default async function TransactionsPage({
     if (tenant_id) params.set('tenant_id', tenant_id)
     if (date_from) params.set('date_from', date_from)
     if (date_to) params.set('date_to', date_to)
+    if (case_number) params.set('case_number', case_number)
+    if (amount_min) params.set('amount_min', amount_min)
+    if (amount_max) params.set('amount_max', amount_max)
     params.set('page', String(p))
     return `/transactions?${params.toString()}`
   }

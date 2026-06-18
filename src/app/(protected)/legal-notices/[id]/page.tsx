@@ -9,12 +9,14 @@ import { ArrowLeft, Download } from 'lucide-react'
 import { SendToAttorneyButton } from './send-attorney-button'
 import { UpdateNoticeStatusDialog } from './update-status-dialog'
 import { PrintButton } from './print-button'
+import { GeneratePdfButton } from './generate-pdf-button'
 
 const NOTICE_LABELS: Record<string, string> = {
-  notice_30day:          '30-Day Notice of Rent Demand (to Tenant)',
-  non_payment_30day:     '30-Day Rent Demand Letter (HRA)',
-  non_payment_60day:     '14-Day Notice of Cure/Quit',
-  notice_90day:          '90-Day Termination Notice',
+  notice_5day:           '5-Day Non-Payment Notice (Court)',
+  notice_30day:          '30-Day Landlord Cure Notice (to Tenant)',
+  non_payment_30day:     '30-Day HRA Rent Demand Letter (to HRA)',
+  non_payment_60day:     '14-Day Notice of Cure (Non-Payment)',
+  notice_90day:          '90-Day Termination Notice (Eviction)',
   notice_90day_b84:      '90-Day Termination Notice (B84 — Beach 84th St)',
   notice_90day_8607:     '90-Day Termination Notice (8607 — 101st St)',
   court_form:            'Court — Holdover Petition',
@@ -177,10 +179,8 @@ export default async function LegalNoticeDetailPage({
               <Download className="w-3.5 h-3.5" />
               Download PDF
             </a>
-          ) : pdfJob?.status === 'pending' || pdfJob?.status === 'processing' ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground border border-dashed rounded-md">
-              PDF queued — run WF5 in n8n
-            </span>
+          ) : pdfJob ? (
+            <GeneratePdfButton noticeId={id} />
           ) : null}
           <PrintButton />
         </div>

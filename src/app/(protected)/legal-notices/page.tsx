@@ -16,10 +16,11 @@ const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 
 }
 
 const NOTICE_LABELS: Record<string, string> = {
-  notice_30day:          '30-Day Rent Demand (Tenant)',
-  non_payment_30day:     '30-Day Demand (HRA)',
-  non_payment_60day:     '14-Day Cure Notice',
-  notice_90day:          '90-Day Notice',
+  notice_5day:           '5-Day Non-Payment (Court)',
+  notice_30day:          '30-Day Landlord Cure Notice',
+  non_payment_30day:     '30-Day HRA Demand (to HRA)',
+  non_payment_60day:     '14-Day Notice of Cure',
+  notice_90day:          '90-Day Termination (Eviction)',
   notice_90day_b84:      '90-Day Notice (B84)',
   notice_90day_8607:     '90-Day Notice (8607)',
   court_form:            'Court — Holdover',

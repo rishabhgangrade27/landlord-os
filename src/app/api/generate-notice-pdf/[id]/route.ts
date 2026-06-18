@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 
 export async function POST(
   _request: Request,
@@ -36,7 +37,8 @@ export async function POST(
   await supabase.from('pdf_jobs').update({ status: 'processing' }).eq('id', job.id)
 
   try {
-    const apiKey = process.env.HTML2PDF_API_KEY
+    const cfEnv = (await getCloudflareContext({ async: true })).env as Record<string, string | undefined>
+    const apiKey = cfEnv.HTML2PDF_API_KEY ?? process.env.HTML2PDF_API_KEY
     if (!apiKey) throw new Error('HTML2PDF_API_KEY not configured')
 
     const pdfRes = await fetch('https://api.html2pdf.app/v1/generate', {
@@ -60,9 +62,12 @@ export async function POST(
 
     const pdfBytes = await pdfRes.arrayBuffer()
 
+    const serviceRoleKey = cfEnv.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!serviceRoleKey) throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured')
+
     const admin = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      serviceRoleKey
     )
 
     const filename = `${job.filename ?? `notice_${noticeId}`}.pdf`

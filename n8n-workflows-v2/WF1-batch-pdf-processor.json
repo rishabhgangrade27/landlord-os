@@ -1,0 +1,378 @@
+{
+  "name": "WF1 — Batch PDF Processor (v3, local Postgres) — LandlordOS",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-2400, 0],
+      "id": "trigger-schedule",
+      "name": "Poll Every 15 Min"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM \"Transaction\" WHERE status = $1",
+        "options": {
+          "queryReplacement": "=uploaded"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-2176, 0],
+      "id": "fetch-uploaded-rows",
+      "name": "Fetch Uploaded Transactions",
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_LOCAL_POSTGRES_CREDENTIAL_ID",
+          "name": "LandlordOS Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "has-rows",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-1952, 0],
+      "id": "check-has-rows",
+      "name": "Any Rows to Process?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Group uploaded rows by file_path so we read each PDF only once\nconst rows = $input.all().map(i => i.json);\nconst groups = {};\nfor (const row of rows) {\n  const key = row.file_path || row.source_pdf_url;\n  if (!key) continue;\n  if (!groups[key]) groups[key] = { file_path: row.file_path, source_pdf_url: row.source_pdf_url, placeholder_id: row.id };\n}\nreturn Object.values(groups).map(g => ({ json: g }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1728, 0],
+      "id": "group-by-file",
+      "name": "Group by File Path"
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "fileSelector": "={{ $env.LANDLORD_STORAGE_DIR }}/{{ $json.file_path }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [-1504, 0],
+      "id": "download-pdf",
+      "name": "Read Local Receipt File"
+    },
+    {
+      "parameters": {
+        "resource": "document",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "text": "=You are a highly specialized financial auditor and OCR expert specializing in NYC Department of Social Services (DSS) Public Assistance checks, Western Union Money Orders, and standard bank checks.\n\nAnalyze this multi-page PDF document. It contains a mix of check fronts, check stubs, and the backs of checks (endorsements).\n\nFor EACH PAGE, evaluate its contents.\n\nCRITICAL RULE FOR 'is_blank':\n\nIf the page is the BACK of a check (showing 'Endorse Here', signatures, or 'Deposit Only'), a completely blank page, or just a payment stub/receipt (not the actual negotiable check), you MUST set 'is_blank' to true.\n\nIf it is a valid FRONT of a check or money order, set 'is_blank' to false and extract the data.\n\nEXTRACTION RULES (Only if is_blank is false):\n\ncase_number: Look for the 'CASE NUMBER' field (e.g., 00037145839J-01). Western Union money orders usually DO NOT have this; return null if not explicitly found. Do not guess.\n\namount: The 'TOTAL DOLLARS' or 'AMOUNT' field. Convert this to a pure number (e.g., 200.00). Ignore stars or symbols like ********$.\n\ncheck_number: Look for the 'CHECK NUMBER' on the top right or the middle number in the bottom MICR line (e.g., 25595287).\n\ncheck_date: The 'DATE' of the check. Format it strictly as YYYY-MM-DD.\n\nrent_from / rent_to: Look for the table specifying the payment period (e.g., 'FROM: 08/14/2020 TO: 08/28/2020'). Extract these dates exactly as written. If not found, return null.\n\nReturn a strict JSON Array containing objects for EVERY page. Schema:\n[ { \"page_number\": number, \"is_blank\": boolean, \"case_number\": string | null, \"amount\": number | null, \"check_number\": string | null, \"check_date\": string | null, \"rent_from\": string | null, \"rent_to\": string | null } ]",
+        "inputType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [-1280, 0],
+      "id": "gemini-ocr",
+      "name": "Gemini OCR Processor",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "RcdnctwP2YToaHb6",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawText = $input.first().json.content.parts[0].text;\nconst cleanString = rawText.replace(/```json/g, '').replace(/```/g, '').trim();\nconst parsedArray = JSON.parse(cleanString);\nreturn parsedArray.map(item => ({ json: item }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1056, 0],
+      "id": "split-pages",
+      "name": "Split Pages Into Items"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "is-blank-check",
+              "leftValue": "={{ $json.is_blank }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-832, 0],
+      "id": "is-blank",
+      "name": "Is Blank Page?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE \"Transaction\" SET status = 'blank_detected', page_number = $1 WHERE file_path = $2 AND status = 'uploaded'",
+        "options": {
+          "queryReplacement": "={{ $json.page_number }}, {{ $('Group by File Path').item.json.file_path }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-608, -120],
+      "id": "mark-blank",
+      "name": "Update Placeholder → blank_detected",
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_LOCAL_POSTGRES_CREDENTIAL_ID",
+          "name": "LandlordOS Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let score = 0;\nconst r = $input.first().json;\nif (r.case_number && r.amount && r.check_date) { score += 0.5; }\nif (r.case_number && /^[0-9A-Z-]+$/.test(r.case_number)) { score += 0.2; }\nif (typeof r.amount === 'number' && r.amount > 0) { score += 0.2; }\nreturn [{ json: { ...r, ocr_confidence: score } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-608, 120],
+      "id": "score-item",
+      "name": "Score & Format"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM \"Transaction\" WHERE extracted_case_number = $1 AND extracted_check_number = $2 AND extracted_amount = $3 AND deleted_at IS NULL",
+        "options": {
+          "queryReplacement": "={{ $json.case_number }}, {{ $json.check_number }}, {{ $json.amount }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-384, 120],
+      "id": "check-duplicates",
+      "name": "Check Duplicates in DB",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_LOCAL_POSTGRES_CREDENTIAL_ID",
+          "name": "LandlordOS Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM \"Tenant\" WHERE deleted_at IS NULL",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-160, 120],
+      "id": "get-tenants",
+      "name": "Get All Tenants",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_LOCAL_POSTGRES_CREDENTIAL_ID",
+          "name": "LandlordOS Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── Setup ───────────────────────────────────────────────────────────────\nconst scoredItems   = $('Score & Format').all();\nconst dbDuplicates  = $('Check Duplicates in DB').all().filter(i => i.json.id);\nconst allTenants    = $('Get All Tenants').all();\n\nfunction dataScore(r) {\n  return [r.case_number, r.check_number, r.amount, r.check_date, r.rent_from, r.rent_to]\n    .filter(v => v != null && v !== '').length;\n}\n\nfunction checkKey(r) {\n  if (!r.case_number && !r.check_number) return null;\n  return (r.case_number || '') + '|' + (r.check_number || '') + '|' + (r.amount || '');\n}\n\nconst batchGroups = {};\nscoredItems.forEach((item, idx) => {\n  const key = checkKey(item.json);\n  if (!key) return;\n  const score = dataScore(item.json);\n  if (!batchGroups[key] || score > batchGroups[key].realScore) {\n    batchGroups[key] = { realIdx: idx, realScore: score };\n  }\n});\n\nreturn scoredItems.map((item, idx) => {\n  const receipt = item.json;\n  const tenant  = allTenants.find(t => t.json.case_number === receipt.case_number);\n  const key     = checkKey(receipt);\n  const inBatchDuplicate = key !== null && batchGroups[key] && batchGroups[key].realIdx !== idx;\n  const dbDuplicate = dbDuplicates.find(d =>\n    d.json.extracted_case_number === receipt.case_number &&\n    d.json.extracted_check_number === receipt.check_number &&\n    d.json.extracted_amount === receipt.amount\n  );\n  let dbDuplicateIsReal = false;\n  if (dbDuplicate) {\n    const dbScore = [\n      dbDuplicate.json.extracted_case_number,\n      dbDuplicate.json.extracted_check_number,\n      dbDuplicate.json.extracted_amount,\n      dbDuplicate.json.extracted_check_date,\n      dbDuplicate.json.extracted_rent_from,\n      dbDuplicate.json.extracted_rent_to\n    ].filter(v => v != null && v !== '').length;\n    dbDuplicateIsReal = dataScore(receipt) <= dbScore;\n  }\n  const isDuplicate   = inBatchDuplicate || (!!dbDuplicate && dbDuplicateIsReal);\n  const duplicateRefId = (dbDuplicate && dbDuplicateIsReal) ? dbDuplicate.json.id : null;\n  let status = 'needs_review';\n  if (isDuplicate) { status = 'duplicate_suspected'; }\n  else if (receipt.ocr_confidence > 0.75 && tenant) { status = 'processing'; }\n  return {\n    json: {\n      extracted_case_number:  receipt.case_number,\n      extracted_check_number: receipt.check_number,\n      extracted_amount:       receipt.amount,\n      extracted_check_date:   receipt.check_date,\n      extracted_rent_from:    receipt.rent_from,\n      extracted_rent_to:      receipt.rent_to,\n      page_number:            receipt.page_number,\n      matched_tenant_id:      tenant ? tenant.json.id : null,\n      duplicate_suspected:    isDuplicate,\n      duplicate_reference_id: duplicateRefId,\n      status:                 status,\n      ocr_confidence:         receipt.ocr_confidence,\n      source_pdf_url:         $('Group by File Path').item.json.source_pdf_url,\n      file_path:              $('Group by File Path').item.json.file_path\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [64, 120],
+      "id": "build-output-rows",
+      "name": "Build Final Row Data"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO \"Transaction\" (id, extracted_case_number, extracted_check_number, extracted_amount, extracted_check_date, extracted_rent_from, extracted_rent_to, page_number, matched_tenant_id, duplicate_suspected, duplicate_reference_id, status, ocr_confidence, source_pdf_url, file_path, file_bucket, created_by) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'local', 'system')",
+        "options": {
+          "queryReplacement": "={{ $json.extracted_case_number }}, {{ $json.extracted_check_number }}, {{ $json.extracted_amount }}, {{ $json.extracted_check_date }}, {{ $json.extracted_rent_from }}, {{ $json.extracted_rent_to }}, {{ $json.page_number }}, {{ $json.matched_tenant_id }}, {{ $json.duplicate_suspected }}, {{ $json.duplicate_reference_id }}, {{ $json.status }}, {{ $json.ocr_confidence }}, {{ $json.source_pdf_url }}, {{ $json.file_path }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [288, 120],
+      "id": "insert-real-row",
+      "name": "Insert Transaction Row",
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_LOCAL_POSTGRES_CREDENTIAL_ID",
+          "name": "LandlordOS Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM \"Transaction\" WHERE id = $1 AND status = 'uploaded'",
+        "options": {
+          "queryReplacement": "={{ $('Group by File Path').item.json.placeholder_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [512, 0],
+      "id": "delete-placeholder",
+      "name": "Delete Original Placeholder Row",
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_LOCAL_POSTGRES_CREDENTIAL_ID",
+          "name": "LandlordOS Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const blankCount  = $('Update Placeholder → blank_detected').all().length;\nconst insertCount = $('Insert Transaction Row').all().length;\nreturn [{ json: { blank_pages: blankCount, processed_pages: insertCount, total_pages: blankCount + insertCount } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [512, 240],
+      "id": "final-counts",
+      "name": "Get Final Counts"
+    },
+    {
+      "parameters": {
+        "sendTo": "demo.landlord@example.com",
+        "subject": "LandlordOS — PDF Batch Processed",
+        "emailType": "text",
+        "message": "=Your uploaded receipts have been processed.\n\nTotal pages: {{ $json.total_pages }}\nSuccessfully extracted: {{ $json.processed_pages }}\nFlagged as blank/back-of-check: {{ $json.blank_pages }}\n\nCheck your dashboard to review and verify transactions.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [736, 240],
+      "id": "send-email",
+      "name": "Email Admin — Upload Complete",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "6zrUhmfLIrDSE423",
+          "name": "Gmail — demo.landlord@example.com"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [-2400, -400],
+      "id": "error-trigger",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO \"SystemError\" (id, workflow_name, error_message, created_at) VALUES (gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP)",
+        "options": {
+          "queryReplacement": "={{ $workflow.name }}, {{ $json.execution.error.message }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-2176, -400],
+      "id": "log-error",
+      "name": "Log Error to system_errors",
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_LOCAL_POSTGRES_CREDENTIAL_ID",
+          "name": "LandlordOS Local Postgres"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Poll Every 15 Min":                    { "main": [[{ "node": "Fetch Uploaded Transactions", "type": "main", "index": 0 }]] },
+    "Fetch Uploaded Transactions":          { "main": [[{ "node": "Any Rows to Process?",         "type": "main", "index": 0 }]] },
+    "Any Rows to Process?":                 { "main": [[{ "node": "Group by File Path",            "type": "main", "index": 0 }], []] },
+    "Group by File Path":                   { "main": [[{ "node": "Read Local Receipt File",       "type": "main", "index": 0 }]] },
+    "Read Local Receipt File":              { "main": [[{ "node": "Gemini OCR Processor",          "type": "main", "index": 0 }]] },
+    "Gemini OCR Processor":                 { "main": [[{ "node": "Split Pages Into Items",        "type": "main", "index": 0 }]] },
+    "Split Pages Into Items":               { "main": [[{ "node": "Is Blank Page?",                "type": "main", "index": 0 }]] },
+    "Is Blank Page?":                       { "main": [[{ "node": "Update Placeholder → blank_detected", "type": "main", "index": 0 }], [{ "node": "Score & Format", "type": "main", "index": 0 }]] },
+    "Update Placeholder → blank_detected":  { "main": [[{ "node": "Get Final Counts",             "type": "main", "index": 0 }]] },
+    "Score & Format":                       { "main": [[{ "node": "Check Duplicates in DB",        "type": "main", "index": 0 }]] },
+    "Check Duplicates in DB":               { "main": [[{ "node": "Get All Tenants",               "type": "main", "index": 0 }]] },
+    "Get All Tenants":                      { "main": [[{ "node": "Build Final Row Data",           "type": "main", "index": 0 }]] },
+    "Build Final Row Data":                 { "main": [[{ "node": "Insert Transaction Row",         "type": "main", "index": 0 }]] },
+    "Insert Transaction Row":               { "main": [[{ "node": "Delete Original Placeholder Row", "type": "main", "index": 0 }]] },
+    "Delete Original Placeholder Row":      { "main": [[{ "node": "Get Final Counts",               "type": "main", "index": 0 }]] },
+    "Get Final Counts":                     { "main": [[{ "node": "Email Admin — Upload Complete",   "type": "main", "index": 0 }]] },
+    "Error Trigger":                        { "main": [[{ "node": "Log Error to system_errors",     "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [{ "name": "landlordos-v3-postgres" }],
+  "_readme": {
+    "trigger": "Schedule cron — polls every 15 min for transactions with status='uploaded'",
+    "flow": "Fetch uploaded rows (Postgres) → group by file_path (one file read per unique file) → read PDF from local disk → Gemini OCR → split pages → blank? mark placeholder as blank_detected : score+dedup+tenant-match (all via Postgres) → insert real row → delete placeholder → email admin",
+    "vs_v2": "Every Supabase node replaced with a Postgres node (raw parameterized SQL via the 'Execute Query' operation — the Supabase node's structured filters/fieldsUi don't have a Postgres equivalent, so this uses $1/$2 placeholders + a comma-separated 'Query Parameters' expression instead). The Supabase Storage HTTP download was replaced with 'Read/Write Files from Disk' (read mode) since receipts now live on local disk, written by the Next.js app to STORAGE_ROOT/receipts/<file>. Also fixed a real bug carried over from v2: the Build Final Row Data code referenced 'scoreditems' (lowercase i) instead of 'scoredItems' — would have thrown ReferenceError at runtime.",
+    "setup_needed": [
+      "Create a Postgres credential in n8n named 'LandlordOS Local Postgres' pointing at localhost:5432/landlordos, then replace every REPLACE_WITH_LOCAL_POSTGRES_CREDENTIAL_ID in this JSON with that credential's real ID (or just re-select the credential on each Postgres node after import — n8n will prompt for it).",
+      "Set an n8n environment variable LANDLORD_STORAGE_DIR to the absolute path of the project's storage folder (e.g. C:\\LandlordOS\\landlord-os\\storage) — must match wherever the app's STORAGE_ROOT actually resolves to on the machine running n8n.",
+      "Table names in Postgres are case-sensitive PascalCase (\"Transaction\", \"Tenant\", \"SystemError\") because Prisma didn't `@@map` them to snake_case — the double-quotes in every query here are required, don't let an editor strip them."
+    ],
+    "credentials_needed": ["Postgres — local landlordos DB", "Google Gemini(PaLM) Api account", "Gmail OAuth — demo.landlord@example.com"],
+    "gmail_credential_note": "Rename the Gmail credential in n8n to match demo.landlord@example.com before activating"
+  }
+}

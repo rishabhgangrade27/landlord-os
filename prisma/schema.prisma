@@ -1,0 +1,251 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Property {
+  id            String              @id @default(uuid())
+  name          String?
+  address       String?
+  city          String?
+  state         String?
+  zip           String?
+  property_type String?
+  status        String?
+  nickname      String?
+  created_by    String?
+  created_at    DateTime            @default(now())
+  expenses      Expense[]
+  leases        Lease[]
+  legal_notices LegalNotice[]
+  maintenance   MaintenanceTicket[]
+  units         Unit[]
+}
+
+model Unit {
+  id            String              @id @default(uuid())
+  property_id   String
+  unit_number   String
+  floor         Int?
+  bedrooms      Int?
+  bathrooms     Int?
+  notes         String?
+  status        String
+  created_at    DateTime            @default(now())
+  expenses      Expense[]
+  leases        Lease[]
+  legal_notices LegalNotice[]
+  maintenance   MaintenanceTicket[]
+  tenants       Tenant[]
+  property      Property            @relation(fields: [property_id], references: [id], onDelete: Cascade)
+}
+
+model Tenant {
+  id              String              @id @default(uuid())
+  name            String
+  full_legal_name String?
+  case_number     String?             @unique
+  email           String?
+  phone           String?
+  address         String?
+  unit_id         String?
+  household_size  Int?
+  ssn_encrypted   String?
+  state_id        String?
+  notes           String?
+  status          String
+  created_at      DateTime            @default(now())
+  deleted_at      DateTime?
+  leases          Lease[]
+  legal_notices   LegalNotice[]
+  maintenance     MaintenanceTicket[]
+  unit            Unit?               @relation(fields: [unit_id], references: [id])
+  transactions    Transaction[]
+}
+
+model Lease {
+  id            String        @id @default(uuid())
+  tenant_id     String
+  property_id   String?
+  unit_id       String?
+  start_date    DateTime
+  end_date      DateTime?
+  rent_amount   Float
+  status        String
+  notes         String?
+  created_at    DateTime      @default(now())
+  unit          Unit?         @relation(fields: [unit_id], references: [id])
+  property      Property?     @relation(fields: [property_id], references: [id])
+  tenant        Tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  legal_notices LegalNotice[]
+}
+
+model Transaction {
+  id                     String    @id @default(uuid())
+  matched_tenant_id      String?
+  extracted_case_number  String?
+  extracted_check_number String?
+  extracted_check_date   String?
+  extracted_amount       Float?
+  extracted_rent_from    String?
+  extracted_rent_to      String?
+  ocr_confidence         Float?
+  duplicate_suspected    Boolean?
+  duplicate_reference_id String?
+  page_number            Int?
+  source_pdf_url         String?
+  file_bucket            String?
+  file_path              String?
+  review_notes           String?
+  reviewed_by            String?
+  reviewed_at            DateTime?
+  verified_at            DateTime?
+  status                 String
+  source                 String?
+  created_by             String?
+  updated_by             String?
+  status_changed_by      String?
+  status_changed_at      DateTime?
+  processed_by           String?
+  created_at             DateTime  @default(now())
+  deleted_at             DateTime?
+  tenant                 Tenant?   @relation(fields: [matched_tenant_id], references: [id])
+}
+
+model MaintenanceTicket {
+  id                     String      @id @default(uuid())
+  title                  String
+  description            String?
+  category               String
+  priority               String
+  status                 String
+  tenant_id              String?
+  unit_id                String?
+  property_id            String?
+  assigned_contractor_id String?
+  estimated_cost         Float?
+  actual_cost            Float?
+  cost_approved          Boolean?
+  created_at             DateTime    @default(now())
+  contractor             Contractor? @relation(fields: [assigned_contractor_id], references: [id])
+  property               Property?   @relation(fields: [property_id], references: [id])
+  unit                   Unit?       @relation(fields: [unit_id], references: [id])
+  tenant                 Tenant?     @relation(fields: [tenant_id], references: [id])
+}
+
+model Contractor {
+  id             String              @id @default(uuid())
+  name           String
+  trade          String?
+  email          String?
+  phone          String?
+  address        String?
+  payment_method String?
+  notes          String?
+  status         String
+  created_at     DateTime            @default(now())
+  maintenance    MaintenanceTicket[]
+}
+
+model Expense {
+  id           String    @id @default(uuid())
+  property_id  String?
+  unit_id      String?
+  category     String
+  description  String?
+  amount       Float
+  expense_date DateTime
+  created_at   DateTime  @default(now())
+  unit         Unit?     @relation(fields: [unit_id], references: [id])
+  property     Property? @relation(fields: [property_id], references: [id])
+}
+
+model LegalNotice {
+  id             String    @id @default(uuid())
+  tenant_id      String?
+  lease_id       String?
+  unit_id        String?
+  property_id    String?
+  notice_type    String
+  reference_id   String?
+  rendered_text  String
+  status         String
+  send_method    String?
+  attorney_email String?
+  sent_at        DateTime?
+  admin_notes    String?
+  generated_at   DateTime?
+  created_at     DateTime  @default(now())
+  pdf_url        String?
+  attorney_notified_at DateTime?
+  attorney_email_sent  Boolean?
+  property       Property? @relation(fields: [property_id], references: [id])
+  unit           Unit?     @relation(fields: [unit_id], references: [id])
+  lease          Lease?    @relation(fields: [lease_id], references: [id])
+  tenant         Tenant?   @relation(fields: [tenant_id], references: [id])
+}
+
+model LegalTemplate {
+  id          String   @id @default(uuid())
+  title       String
+  notice_type String
+  body        String
+  is_active   Boolean
+  created_at  DateTime @default(now())
+}
+
+model SystemSettings {
+  id               Int     @id @default(autoincrement())
+  processing_mode  String
+  attorney_name    String?
+  attorney_address String?
+  attorney_phone   String?
+  attorney_email   String?
+}
+
+model PdfJob {
+  id            String    @id @default(uuid())
+  job_type      String
+  reference_id  String
+  html_content  String?
+  filename      String?
+  status        String
+  pdf_url       String?
+  requested_at  DateTime?
+  completed_at  DateTime?
+  error_message String?
+
+  @@map("pdf_jobs")
+}
+
+model SystemError {
+  id                String   @id @default(uuid())
+  workflow_name     String?
+  error_message     String?
+  raw_payload       String?
+  error_file_url    String?
+  severity          String?
+  is_resolved       Boolean?
+  resolution_notes  String?
+  tenant_id         String?
+  transaction_id    String?
+  error_stage       String?
+  error_type        String?
+  created_at        DateTime @default(now())
+}
+
+model LegalHistory {
+  id           String   @id @default(uuid())
+  notice_id    String?
+  entity_type  String?
+  entity_id    String?
+  action       String
+  notice_type  String?
+  reference_id String?
+  snapshot     String?
+  occurred_at  DateTime
+}

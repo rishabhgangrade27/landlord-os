@@ -17,8 +17,8 @@ const NOTICE_LABELS: Record<string, string> = {
   non_payment_30day:     '30-Day HRA Rent Demand Letter (to HRA)',
   non_payment_60day:     '14-Day Notice of Cure (Non-Payment)',
   notice_90day:          '90-Day Termination Notice (Eviction)',
-  notice_90day_b84:      '90-Day Termination Notice (B84 — Beach 84th St)',
-  notice_90day_8607:     '90-Day Termination Notice (8607 — 101st St)',
+  notice_90day_sunrise:  '90-Day Termination Notice (Sunrise Blvd)',
+  notice_90day_willow:   '90-Day Termination Notice (Willow Ave)',
   court_form:            'Court — Holdover Petition',
   court_form_nonpayment: 'Court — Non-Payment Petition',
 }

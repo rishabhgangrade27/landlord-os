@@ -56,7 +56,7 @@ export function AttorneyConfigForm({ current }: Props) {
         <Input
           value={form.attorney_name}
           onChange={(e) => set('attorney_name', e.target.value)}
-          placeholder="e.g. Parmanand Ramdass, P.C."
+          placeholder="e.g. Demo Legal Associates, P.C."
         />
       </div>
       <div className="space-y-1.5">
@@ -64,7 +64,7 @@ export function AttorneyConfigForm({ current }: Props) {
         <Input
           value={form.attorney_address}
           onChange={(e) => set('attorney_address', e.target.value)}
-          placeholder="e.g. 115-89 Lefferts Blvd., South Ozone Park, NY 11420"
+          placeholder="e.g. 400 Market Street, Suite 100, Springfield, NY 10001"
         />
       </div>
       <div className="grid grid-cols-2 gap-3">

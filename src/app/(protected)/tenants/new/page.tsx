@@ -101,7 +101,7 @@ export default function NewTenantPage() {
                       <Label htmlFor="name">Display Name <span className="text-destructive">*</span></Label>
                       <Input
                         id="name"
-                        placeholder="e.g. Abdullah Ali"
+                        placeholder="e.g. Jordan Lee"
                         value={form.name}
                         onChange={(e) => set('name', e.target.value)}
                         required

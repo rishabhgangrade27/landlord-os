@@ -82,7 +82,7 @@ export default function NewPropertyPage() {
                 <Label htmlFor="name">Property Name <span className="text-destructive">*</span></Label>
                 <Input
                   id="name"
-                  placeholder="e.g. 8607 Sutphin Blvd"
+                  placeholder="e.g. 4521 Willow Avenue"
                   value={form.name}
                   onChange={(e) => set('name', e.target.value)}
                   required
@@ -93,7 +93,7 @@ export default function NewPropertyPage() {
                 <Label htmlFor="address">Street Address <span className="text-destructive">*</span></Label>
                 <Input
                   id="address"
-                  placeholder="e.g. 8607 Sutphin Blvd"
+                  placeholder="e.g. 4521 Willow Avenue"
                   value={form.address}
                   onChange={(e) => set('address', e.target.value)}
                   required

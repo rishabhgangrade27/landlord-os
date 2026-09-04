@@ -158,8 +158,8 @@ export type LegalNotice = {
     | 'non_payment_30day'
     | 'non_payment_60day'
     | 'notice_90day'
-    | 'notice_90day_b84'
-    | 'notice_90day_8607'
+    | 'notice_90day_sunrise'
+    | 'notice_90day_willow'
     | 'court_form'
     | 'court_form_nonpayment'
     | string

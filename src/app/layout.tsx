@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LandlordOS",
-  description: "Property management for Sonu Gupta",
+  title: "PropertyOS Demo",
+  description: "Property management system — portfolio demo",
 };
 
 export default function RootLayout({

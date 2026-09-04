@@ -20,23 +20,23 @@ function getLandlordInfo(propertyAddress: string | null): {
   landlord_email: string
 } {
   const addr = (propertyAddress ?? '').toLowerCase()
-  const is8607 = addr.includes('8607') || addr.includes('101st') || addr.includes('101 st')
-  if (is8607) {
+  const isWillow = addr.includes('4521') || addr.includes('willow')
+  if (isWillow) {
     return {
-      landlord_entity:    'SHREE GANESH CROP.',
-      landlord_signatory: 'Avinash Manoo',
-      landlord_address:   '115-89 Lefferts Blvd., South Ozone Park, NY 11420',
-      landlord_phone:     '(718) 441-1066',
-      landlord_email:     'Sonu718@Gmail.com',
+      landlord_entity:    'Willow Grove Holdings LLC',
+      landlord_signatory: 'Jamie Rivera',
+      landlord_address:   '4521 Willow Avenue, Kew Gardens, NY 11415',
+      landlord_phone:     '(555) 010-2200',
+      landlord_email:     'jamie.rivera@willowgroveholdings.example',
     }
   }
-  // B84 / default (Beach 84th St)
+  // Sunrise / default (Sunrise Boulevard properties)
   return {
-    landlord_entity:    'LAXMI MAA LLC',
-    landlord_signatory: 'Sonu Gupta',
-    landlord_address:   '11589 Lefferts Blvd, S. Ozone Park NY 11420',
-    landlord_phone:     '(646) 327-1643',
-    landlord_email:     'Sonu718@Gmail.com',
+    landlord_entity:    'Sunrise Court Properties LLC',
+    landlord_signatory: 'Morgan Ellis',
+    landlord_address:   '220 Sunrise Boulevard, Ocean Grove, NY 11693',
+    landlord_phone:     '(555) 010-8800',
+    landlord_email:     'morgan.ellis@sunrisecourtproperties.example',
   }
 }
 
@@ -49,10 +49,10 @@ async function resolveTemplateType(
   if (noticeType !== 'notice_90day') return noticeType
 
   const addr = (propertyAddress ?? '').toLowerCase()
-  const is8607 = addr.includes('8607') || addr.includes('101st') || addr.includes('101 st')
-  const isB84  = addr.includes('beach') || addr.includes('84th') || addr.includes('338')
+  const isWillow  = addr.includes('4521') || addr.includes('willow')
+  const isSunrise = addr.includes('sunrise') || addr.includes('ocean grove') || addr.includes('220')
 
-  const variantType = is8607 ? 'notice_90day_8607' : isB84 ? 'notice_90day_b84' : null
+  const variantType = isWillow ? 'notice_90day_willow' : isSunrise ? 'notice_90day_sunrise' : null
   if (!variantType) return noticeType
 
   const { data } = await supabase
@@ -90,10 +90,10 @@ export async function POST(request: Request) {
     .eq('id', 1)
     .single()
 
-  const attorneyName    = settings?.attorney_name    ?? 'Parmanand Ramdass, P.C.'
-  const attorneyAddress = settings?.attorney_address ?? '115-89 Lefferts Blvd., South Ozone Park, NY 11420'
-  const attorneyPhone   = settings?.attorney_phone   ?? '(718) 441-1066'
-  const attorneyEmail   = settings?.attorney_email   ?? 'Parmlawoffice@aol.com'
+  const attorneyName    = settings?.attorney_name    ?? 'Demo Legal Associates, P.C.'
+  const attorneyAddress = settings?.attorney_address ?? '400 Market Street, Suite 100, Springfield, NY 10001'
+  const attorneyPhone   = settings?.attorney_phone   ?? '(555) 010-4400'
+  const attorneyEmail   = settings?.attorney_email   ?? 'contact@demolegalassociates.example'
 
   // ── Tenant ──────────────────────────────────────────────────────────────────
   const { data: tenant } = await supabase
@@ -208,7 +208,7 @@ export async function POST(request: Request) {
   const vacateByDate = vacateDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
   // ── Build template data ───────────────────────────────────────────────────────
-  // Extract unit label from property nickname (e.g. "8607 101st - Unit 2R" → "2R")
+  // Extract unit label from property nickname (e.g. "4521 Willow Ave - Unit 2R" → "2R")
   const unitLabel = property?.nickname
     ? (property.nickname.match(/[Uu]nit\s*(.+)$/)?.[1]?.trim() ?? property.nickname)
     : '—'

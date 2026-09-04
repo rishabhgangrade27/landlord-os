@@ -42,7 +42,7 @@ export default function LoginPage() {
           <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary text-primary-foreground">
             <Building2 className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">LandlordOS</h1>
+          <h1 className="text-2xl font-bold tracking-tight">PropertyOS Demo</h1>
           <p className="text-sm text-muted-foreground">Property management system</p>
         </div>
 
@@ -59,7 +59,7 @@ export default function LoginPage() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="skg71885@gmail.com"
+                  placeholder="demo@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

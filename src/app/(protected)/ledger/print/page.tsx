@@ -1,5 +1,5 @@
 // Court Ledger — Print / PDF page
-// Matches the rent info.pdf format Sonu uses in court.
+// Matches the landlord's standard rent-info PDF format used in court.
 // Open via /ledger/print?tenant_id=XXX, then Ctrl+P / Print → Save as PDF
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'

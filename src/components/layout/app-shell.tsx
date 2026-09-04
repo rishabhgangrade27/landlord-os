@@ -43,7 +43,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="flex items-center justify-center w-7 h-7 rounded-md bg-primary text-primary-foreground">
               <Building2 className="w-3.5 h-3.5" />
             </div>
-            <span className="font-semibold text-sm">LandlordOS</span>
+            <span className="font-semibold text-sm">PropertyOS Demo</span>
           </div>
         </header>
 

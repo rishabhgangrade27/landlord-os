@@ -37,7 +37,7 @@ function NewLeasePageContent() {
   })
 
   useEffect(() => {
-    // All tenants (active + moved_out) — Sonu might renew a moved_out tenant
+    // All tenants (active + moved_out) — the landlord might renew a moved_out tenant
     supabase
       .from('tenants')
       .select('id, name, case_number, status')

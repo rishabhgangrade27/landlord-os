@@ -21,8 +21,8 @@ const NOTICE_LABELS: Record<string, string> = {
   non_payment_30day:     '30-Day HRA Demand (to HRA)',
   non_payment_60day:     '14-Day Notice of Cure',
   notice_90day:          '90-Day Termination (Eviction)',
-  notice_90day_b84:      '90-Day Notice (B84)',
-  notice_90day_8607:     '90-Day Notice (8607)',
+  notice_90day_sunrise:  '90-Day Notice (Sunrise)',
+  notice_90day_willow:   '90-Day Notice (Willow)',
   court_form:            'Court — Holdover',
   court_form_nonpayment: 'Court — Non-Payment',
 }

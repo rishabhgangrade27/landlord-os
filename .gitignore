@@ -49,3 +49,6 @@ next-env.d.ts
 !.dev.vars.example
 
 !.env.example
+
+# local-only restoration notes — never committed
+RESTORE-MANIFEST.local.md
